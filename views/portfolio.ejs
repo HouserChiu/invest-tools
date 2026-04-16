@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title><%= page.title %></title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@500;700&family=Outfit:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/portfolio-legacy.css" />
+    <link rel="stylesheet" href="/portfolio-bridge.css" />
+  </head>
+  <body class="portfolio-page" data-page="<%= page.pageKey %>">
+    <div class="aurora aurora-left"></div>
+    <div class="aurora aurora-right"></div>
+
+    <div class="site-shell">
+      <%- include("partials/header", { site, currentPath }) %>
+
+      <main class="doc-page">
+        <nav class="breadcrumb" aria-label="Breadcrumb">
+          <% page.breadcrumb.forEach((item, index) => { %>
+            <% if (index > 0) { %><span>/</span><% } %>
+            <% if (item.href) { %>
+              <a href="<%= item.href %>"><%= item.label %></a>
+            <% } else { %>
+              <span class="is-current"><%= item.label %></span>
+            <% } %>
+          <% }) %>
+        </nav>
+
+        <div class="page-shell portfolio-shell">
+          <header class="hero">
+            <div class="hero-copy">
+              <p class="eyebrow">Portfolio Command Center</p>
+              <h1>把股票和加密资产放到同一个投资驾驶舱里</h1>
+              <p class="hero-text">
+                覆盖 IBKR、Futu、盈立、老虎、辉立、OKX、卓锐。你只需要维护一份持仓数据，就能统一看总资产、总盈亏、平台分布和仓位结构。
+              </p>
+            </div>
+
+            <section class="quick-actions card">
+              <div class="card-heading">
+                <h2>数据工具</h2>
+                <p id="user-badge">请先登录后查看个人投资总览</p>
+              </div>
+              <p id="lan-hint" class="sync-status">正在检测局域网访问地址...</p>
+              <div id="invite-panel" class="invite-panel is-hidden">
+                <span class="metric-label">我的邀请码</span>
+                <strong id="my-invite-code" class="metric-value">-</strong>
+                <span class="metric-note">把这个邀请码发给朋友，对方注册成功后也会自动拥有自己的邀请码。</span>
+              </div>
+              <div class="action-row user-actions">
+                <button id="logout-btn" class="ghost-button is-hidden">退出登录</button>
+              </div>
+              <div class="action-row">
+                <button id="refresh-prices-btn" class="ghost-button">刷新行情</button>
+                <button id="load-sample-btn" class="ghost-button">载入示例数据</button>
+                <button id="reset-btn" class="ghost-button danger">清空当前数据</button>
+              </div>
+              <div class="action-row">
+                <button id="export-btn" class="ghost-button">导出 JSON</button>
+                <label class="import-label ghost-button" for="import-file">导入 JSON</label>
+                <input id="import-file" type="file" accept="application/json" hidden />
+              </div>
+              <p id="sync-status" class="sync-status">页面刷新时会尝试同步股票、期权、加密货币、贵金属和外汇的 T-1 收盘价。</p>
+            </section>
+          </header>
+
+          <section id="auth-panel" class="auth-panel card">
+            <div class="card-heading">
+              <h2>登录 / 注册</h2>
+              <p>每个用户只会看到自己的持仓数据</p>
+            </div>
+
+            <div class="auth-layout">
+              <form id="auth-form" class="auth-form" novalidate>
+                <h3>输入账号后自动登录 / 注册</h3>
+                <label>
+                  用户名
+                  <input id="auth-username" type="text" autocomplete="username" />
+                </label>
+                <label>
+                  密码
+                  <input id="auth-password" type="password" autocomplete="current-password" />
+                </label>
+                <label id="invite-code-field">
+                  邀请码
+                  <input id="auth-invite-code" type="text" autocomplete="off" />
+                </label>
+                <p class="form-hint">已存在用户可直接登录，不填邀请码也可以；新用户首次进入时需要填写邀请码，系统会自动注册并登录。首个注册用户会自动接管当前数据库里尚未归属的历史持仓。</p>
+                <button id="auth-submit-btn" type="submit" class="primary-button">继续</button>
+              </form>
+            </div>
+
+            <p id="auth-status" class="sync-status">登录后才能查看、编辑和同步属于你自己的持仓。</p>
+          </section>
+
+          <section id="dashboard" class="dashboard is-hidden">
+            <section class="summary-grid">
+              <article class="metric-card">
+                <span class="metric-label">总市值</span>
+                <strong id="total-market-value" class="metric-value">$0.00</strong>
+                <span class="metric-note">所有平台资产按美元净值汇总展示</span>
+              </article>
+              <article class="metric-card">
+                <span class="metric-label">总成本</span>
+                <strong id="total-cost" class="metric-value">$0.00</strong>
+                <span class="metric-note">建仓成本的合计值</span>
+              </article>
+              <article class="metric-card">
+                <span class="metric-label">总盈亏</span>
+                <strong id="total-pnl" class="metric-value">$0.00</strong>
+                <span id="total-pnl-rate" class="metric-note">收益率 0.00%</span>
+              </article>
+              <article class="metric-card">
+                <span class="metric-label">持仓平台数</span>
+                <strong id="platform-count" class="metric-value">0</strong>
+                <span class="metric-note">股票券商 + 加密平台</span>
+              </article>
+            </section>
+
+            <section class="content-grid">
+              <section class="card form-card">
+                <div class="card-heading">
+                  <h2>新增 / 编辑持仓</h2>
+                  <p>录入每个平台上的每一笔资产</p>
+                </div>
+
+                <form id="holding-form" class="holding-form">
+                  <input type="hidden" id="holding-id" />
+
+                  <div class="form-grid">
+                    <label>
+                      资产类型
+                      <select id="asset-type" required>
+                        <option value="stock">股票</option>
+                        <option value="option">期权</option>
+                        <option value="cash">现金</option>
+                        <option value="crypto">加密货币</option>
+                        <option value="macro">贵金属 / 外汇</option>
+                      </select>
+                    </label>
+
+                    <label>
+                      所在平台
+                      <select id="platform" required>
+                        <option value="IBKR">IBKR</option>
+                        <option value="Futu">Futu</option>
+                        <option value="Longbridge">盈立</option>
+                        <option value="Tiger">老虎</option>
+                        <option value="Phillip">辉立</option>
+                        <option value="OKX">OKX</option>
+                        <option value="Zhuorui">卓锐</option>
+                      </select>
+                    </label>
+
+                    <label>
+                      市场
+                      <select id="market" required>
+                        <option value="US">美股</option>
+                        <option value="KR">韩股</option>
+                        <option value="CRYPTO">Crypto</option>
+                        <option value="FX">外汇 / 贵金属</option>
+                      </select>
+                    </label>
+
+                    <label id="position-side-field" class="is-hidden">
+                      仓位方向
+                      <select id="position-side">
+                        <option value="long">买方</option>
+                        <option value="short">卖方</option>
+                      </select>
+                    </label>
+
+                    <label>
+                      代码
+                      <input id="symbol" type="text" placeholder="如 AAPL / BTC / XAUUSD" required />
+                    </label>
+
+                    <label>
+                      名称
+                      <input id="name" type="text" placeholder="如 Apple / Bitcoin / Gold Spot" required />
+                    </label>
+
+                    <label>
+                      币种
+                      <select id="currency" required>
+                        <option value="USD">USD</option>
+                        <option value="HKD">HKD</option>
+                        <option value="KRW">KRW</option>
+                        <option value="USDT">USDT</option>
+                        <option value="USDC">USDC</option>
+                        <option value="CUSTOM">其他</option>
+                      </select>
+                      <input id="currency-custom" class="is-hidden" type="text" maxlength="10" placeholder="自定义币种" />
+                    </label>
+
+                    <label>
+                      <span id="quantity-label">持仓数量</span>
+                      <input id="quantity" type="number" min="0" step="any" placeholder="0" required />
+                    </label>
+
+                    <label id="cost-price-field">
+                      <span id="cost-price-label">成本价</span>
+                      <input id="cost-price" type="number" min="0" step="any" placeholder="0" required />
+                    </label>
+
+                    <label id="current-price-field">
+                      <span id="current-price-label">现价</span>
+                      <input id="current-price" type="number" min="0" step="any" placeholder="0" required />
+                    </label>
+
+                    <label>
+                      <span id="fx-rate-label">汇率到基准币</span>
+                      <input id="fx-rate" type="number" min="0" step="any" placeholder="如 1 / 0.00073" required />
+                    </label>
+
+                    <label>
+                      目标仓位 %
+                      <input id="target-allocation" type="number" min="0" max="100" step="any" placeholder="可选" />
+                    </label>
+
+                    <label>
+                      备注
+                      <input id="notes" type="text" placeholder="如 长线 / 波段 / 现货" />
+                    </label>
+                  </div>
+
+                  <section id="option-fields" class="option-section is-hidden">
+                    <div class="option-grid">
+                      <label>
+                        标的资产
+                        <input id="underlying" type="text" placeholder="如 TSLA / NVDA" />
+                      </label>
+
+                      <label>
+                        期权类型
+                        <select id="option-type">
+                          <option value="call">Call</option>
+                          <option value="put">Put</option>
+                        </select>
+                      </label>
+
+                      <label>
+                        行权价
+                        <input id="strike-price" type="number" min="0" step="any" placeholder="如 180" />
+                      </label>
+
+                      <label>
+                        到期日
+                        <input id="expiry-date" type="date" />
+                      </label>
+
+                      <label>
+                        合约乘数
+                        <input id="contract-multiplier" type="number" min="1" step="1" placeholder="默认 100" />
+                      </label>
+                    </div>
+                  </section>
+
+                  <p class="form-hint">
+                    当前按美元做总账汇总。`汇率到基准币` 请填写到美元的汇率，比如美股和 USDT 资产通常填 `1`，港币资产可填 `HKD/USD`，韩股可填 `KRW/USD`；期权按每张合约的报价和乘数计算，现金只需要填金额和汇率。
+                  </p>
+
+                  <div class="form-actions">
+                    <button type="submit" class="primary-button">保存持仓</button>
+                    <button type="button" id="cancel-edit-btn" class="ghost-button">取消编辑</button>
+                  </div>
+                </form>
+              </section>
+
+              <section class="card insight-card">
+                <div class="card-heading">
+                  <h2>仓位洞察</h2>
+                  <p>资产类别、平台和目标仓位偏差</p>
+                </div>
+
+                <div class="insight-group">
+                  <h3>资产类别分布</h3>
+                  <div id="asset-allocation" class="stack-list empty-state"></div>
+                </div>
+
+                <div class="insight-group">
+                  <h3>平台分布</h3>
+                  <div id="platform-allocation" class="stack-list empty-state"></div>
+                </div>
+
+                <div class="insight-group">
+                  <h3>目标仓位偏差</h3>
+                  <div id="allocation-gap" class="gap-list empty-state"></div>
+                </div>
+              </section>
+            </section>
+
+            <section class="card table-card">
+              <div class="card-heading">
+                <h2>全部持仓</h2>
+                <p>支持按平台统一查看股票、期权、加密货币、贵金属和外汇的状态</p>
+              </div>
+
+              <div class="table-wrapper">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>
+                        <div class="table-head-control">
+                          <span>资产</span>
+                          <select id="filter-asset-type">
+                            <option value="">全部</option>
+                          </select>
+                        </div>
+                      </th>
+                      <th>
+                        <div class="table-head-control">
+                          <span>平台</span>
+                          <select id="filter-platform">
+                            <option value="">全部</option>
+                          </select>
+                        </div>
+                      </th>
+                      <th>
+                        <div class="table-head-control">
+                          <span>市场</span>
+                          <select id="filter-market">
+                            <option value="">全部</option>
+                          </select>
+                        </div>
+                      </th>
+                      <th>数量 / 张数</th>
+                      <th>
+                        <div class="table-head-control">
+                          <span>成本</span>
+                          <select id="sort-cost">
+                            <option value="">默认</option>
+                            <option value="costDesc">从高到低</option>
+                          </select>
+                        </div>
+                      </th>
+                      <th>
+                        <div class="table-head-control">
+                          <span>市值</span>
+                          <select id="sort-market-value">
+                            <option value="marketValueDesc">从高到低</option>
+                          </select>
+                        </div>
+                      </th>
+                      <th>
+                        <div class="table-head-control">
+                          <span>盈亏</span>
+                          <select id="sort-pnl">
+                            <option value="">默认</option>
+                            <option value="pnlDesc">从高到低</option>
+                          </select>
+                        </div>
+                      </th>
+                      <th>
+                        <div class="table-head-control">
+                          <span>仓位</span>
+                          <select id="sort-allocation">
+                            <option value="">默认</option>
+                            <option value="allocationDesc">从高到低</option>
+                          </select>
+                        </div>
+                      </th>
+                      <th>操作</th>
+                    </tr>
+                  </thead>
+                  <tbody id="holdings-table-body">
+                    <tr>
+                      <td colspan="9" class="empty-row">还没有持仓，先录入一条数据吧。</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          </section>
+        </div>
+
+        <template id="allocation-item-template">
+          <article class="stack-item">
+            <div>
+              <strong class="stack-title"></strong>
+              <span class="stack-caption"></span>
+            </div>
+            <strong class="stack-value"></strong>
+          </article>
+        </template>
+      </main>
+    </div>
+
+    <script src="/portfolio-app.js"></script>
+  </body>
+</html>

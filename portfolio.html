@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>持仓总览页</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@500;700&family=Outfit:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body data-page="portfolio">
+    <div class="aurora aurora-left"></div>
+    <div class="aurora aurora-right"></div>
+
+    <div class="site-shell">
+      <header class="topbar">
+        <a class="brand" href="/index.html">
+          <span class="brand-mark">GW</span>
+          <span>
+            <strong>Global Wealth Routes</strong>
+            <small>全球投资与资金路径导航</small>
+          </span>
+        </a>
+
+        <nav class="topnav">
+          <a href="/index.html">首页</a>
+          <a href="/stocks.html">股票投资</a>
+          <a href="/crypto.html">加密货币投资</a>
+          <a href="/portfolio.html">持仓工具</a>
+        </nav>
+      </header>
+
+      <main>
+        <section class="page-hero">
+          <div>
+            <p class="eyebrow">Portfolio Command</p>
+            <h1 class="page-title">把两个投资场景的结果统一汇总到持仓工具里</h1>
+            <p class="hero-text">
+              持仓工具页是整个站点的终点页。股票投资和加密货币投资两个场景，最终都应该在这里沉淀成统一的资产视图，让用户一眼看到自己持有什么、分布在哪、哪里需要处理。
+            </p>
+          </div>
+
+          <div class="page-hero-card">
+            <span class="panel-tag">Dashboard goals</span>
+            <h2>统一记账、统一看板、统一提醒</h2>
+            <p>这里应该是用户日常回访频率最高的页面，所以视觉上更偏产品化、更像控制台。</p>
+            <div class="badge-row">
+              <span>股票</span>
+              <span>现金</span>
+              <span>Crypto</span>
+              <span>链上资产</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="section">
+          <div class="dashboard-preview">
+            <article class="metric-panel">
+              <span>总资产净值</span>
+              <strong>$1.28M</strong>
+              <small>跨股票、现金、交易所与链上钱包统一换算</small>
+            </article>
+            <article class="metric-panel">
+              <span>本月净流入</span>
+              <strong>$86.4K</strong>
+              <small>包含股票入金与 Crypto 入金记录</small>
+            </article>
+            <article class="metric-panel">
+              <span>风险提醒</span>
+              <strong>3 项</strong>
+              <small>两项超配，一项链上地址待核验</small>
+            </article>
+            <article class="metric-panel">
+              <span>活跃平台</span>
+              <strong>8</strong>
+              <small>券商、交易所、钱包统一管理</small>
+            </article>
+          </div>
+        </section>
+
+        <section class="section">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">What belongs here</p>
+              <h2>持仓页应该承担这些工作</h2>
+            </div>
+            <p class="section-copy">相比前面的路径页，这里要更强调数据聚合、状态监控与动作入口。</p>
+          </div>
+
+          <div class="module-grid">
+            <article class="module-card accent-lime">
+              <span class="module-tag">Overview</span>
+              <h3>总资产总览</h3>
+              <p>总净值、总成本、总盈亏、币种分布、平台分布和资产分布。</p>
+            </article>
+            <article class="module-card accent-teal">
+              <span class="module-tag">Tracking</span>
+              <h3>出入金记录</h3>
+              <p>把股票和 Crypto 两个场景中的关键资金流与操作记录串起来。</p>
+            </article>
+            <article class="module-card accent-ink">
+              <span class="module-tag">Risk</span>
+              <h3>风险与异常</h3>
+              <p>仓位超配、账户长期闲置、地址未确认、入金未到账都在这里提醒。</p>
+            </article>
+          </div>
+        </section>
+
+        <section class="section">
+          <div class="compare-grid">
+            <article class="compare-card">
+              <h3>建议的页面区块</h3>
+              <ul>
+                <li>总资产摘要</li>
+                <li>资产分类列表</li>
+                <li>平台分布图</li>
+                <li>资金流时间线</li>
+              </ul>
+            </article>
+            <article class="compare-card">
+              <h3>从两个场景页回流的数据</h3>
+              <ul>
+                <li>券商入金记录</li>
+                <li>交易所与钱包地址</li>
+                <li>链上持仓与协议仓位</li>
+                <li>股票组合与配置记录</li>
+              </ul>
+            </article>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

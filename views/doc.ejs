@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <%- include("partials/head", { page }) %>
+  <body data-page="<%= page.pageKey %>">
+    <div class="aurora aurora-left"></div>
+    <div class="aurora aurora-right"></div>
+
+    <div class="site-shell">
+      <%- include("partials/header", { site, currentPath }) %>
+
+      <main class="doc-page">
+        <% if (!page.minimalFlowPage) { %>
+          <nav class="breadcrumb" aria-label="Breadcrumb">
+            <% page.breadcrumb.forEach((item, index) => { %>
+              <% if (index > 0) { %><span>/</span><% } %>
+              <% if (item.href) { %>
+                <a href="<%= item.href %>"><%= item.label %></a>
+              <% } else { %>
+                <span class="is-current"><%= item.label %></span>
+              <% } %>
+            <% }) %>
+          </nav>
+        <% } %>
+
+        <div class="doc-layout <%= page.minimalFlowPage ? 'doc-layout-minimal-flow' : '' %>">
+          <% if (sidebar && !page.minimalFlowPage) { %>
+            <aside class="side-nav">
+              <span class="side-nav-label"><%= sidebar.label %></span>
+              <% sidebar.items.forEach((item) => { %>
+                <% if (item.children?.length && currentPath === item.href) { %>
+                  <div class="side-group">
+                    <button class="side-link side-link-toggle is-current" type="button" data-side-toggle aria-expanded="true">
+                      <span><%= item.label %></span>
+                      <span class="side-toggle-arrow" aria-hidden="true">▾</span>
+                    </button>
+                    <div class="side-subnav is-expanded" data-side-panel>
+                      <% item.children.forEach((child, index) => { %>
+                        <% if (child.children?.length) { %>
+                          <div class="side-sub-group">
+                            <button
+                              class="side-sub-link side-sub-link-toggle <%= index === 0 ? 'is-active' : '' %>"
+                              type="button"
+                              data-sub-toggle
+                              aria-expanded="<%= index === 0 ? 'true' : 'false' %>"
+                            >
+                              <span><%= child.kicker %></span>
+                              <strong><%= child.label %></strong>
+                            </button>
+                            <div class="side-thirdnav <%= index === 0 ? 'is-expanded' : '' %>" data-sub-panel>
+                              <% child.children.forEach((grandchild, childIndex) => { %>
+                                <button
+                                  class="side-third-link <%= index === 0 && childIndex === 0 ? 'is-active' : '' %>"
+                                  type="button"
+                                  data-tree-target="<%= grandchild.target %>"
+                                >
+                                  <span><%= grandchild.kicker %></span>
+                                  <strong><%= grandchild.label %></strong>
+                                </button>
+                              <% }) %>
+                            </div>
+                          </div>
+                        <% } else { %>
+                          <button
+                            class="side-sub-link <%= index === 0 ? 'is-active' : '' %>"
+                            type="button"
+                            data-tree-target="<%= child.target %>"
+                          >
+                            <span><%= child.kicker %></span>
+                            <strong><%= child.label %></strong>
+                          </button>
+                        <% } %>
+                      <% }) %>
+                    </div>
+                  </div>
+                <% } else { %>
+                  <a class="side-link <%= currentPath === item.href ? 'is-current' : '' %>" href="<%= item.href %>"><%= item.label %></a>
+                <% } %>
+              <% }) %>
+            </aside>
+          <% } %>
+
+          <% const compactTreeMode =
+              (page.pageKey === "stocks" &&
+                ["/stocks/bank-cards", "/stocks/brokers", "/stocks/bank-funding", "/stocks/broker-funding", "/stocks/withdrawal", "/stocks/spending"].includes(currentPath)) ||
+              (page.pageKey === "crypto" &&
+                ["/crypto/accounts", "/crypto/funding", "/crypto/withdrawal", "/crypto/spending", "/crypto/onchain", "/crypto/onchain-us-stocks"].includes(currentPath)) ||
+              (page.pageKey === "sim" &&
+                ["/sim/hk", "/sim/us"].includes(currentPath));
+            %>
+            <% const minimalFlowPage = Boolean(page.minimalFlowPage); %>
+          <div class="doc-content <%= minimalFlowPage ? 'doc-content-minimal-flow' : '' %>">
+
+            <% if (!compactTreeMode && !minimalFlowPage) { %>
+              <section class="page-hero">
+                <div>
+                  <p class="eyebrow"><%= page.hero.eyebrow %></p>
+                  <h1 class="page-title"><%= page.hero.title %></h1>
+                  <p class="hero-text"><%= page.hero.description %></p>
+                  <% if (page.hero.actions?.length) { %>
+                    <div class="hero-actions">
+                      <% page.hero.actions.forEach((action) => { %>
+                        <a class="<%= action.style === 'ghost' ? 'ghost-button' : 'primary-button' %>" href="<%= action.href %>"><%= action.label %></a>
+                      <% }) %>
+                    </div>
+                  <% } %>
+                </div>
+
+                <div class="page-hero-card">
+                  <span class="panel-tag"><%= page.hero.tag %></span>
+                  <h2><%= page.hero.panelTitle %></h2>
+                  <p><%= page.hero.panelBody %></p>
+                  <div class="badge-row">
+                    <% (page.hero.badges || []).forEach((badge) => { %>
+                      <span><%= badge %></span>
+                    <% }) %>
+                  </div>
+                </div>
+              </section>
+            <% } %>
+
+            <% if (page.outline?.length && !compactTreeMode && !minimalFlowPage) { %>
+              <section class="section section-compact">
+                <div class="section-heading">
+                  <div>
+                    <p class="eyebrow">Page Outline</p>
+                    <h2>这一页怎么用</h2>
+                  </div>
+                  <p class="section-copy">先看当前阶段需要解决什么，再进入对应区块。每个区块都会直接导向下一步动作，而不是只停留在说明层。</p>
+                </div>
+                <div class="page-outline">
+                  <% page.outline.forEach((item, index) => { %>
+                    <a class="outline-link" href="<%= item.href %>">
+                      <span class="outline-index"><%= String(index + 1).padStart(2, "0") %></span>
+                      <strong><%= item.label %></strong>
+                      <% if (item.note) { %><small><%= item.note %></small><% } %>
+                    </a>
+                  <% }) %>
+                </div>
+              </section>
+            <% } %>
+
+            <% page.sections.forEach((section, sectionIndex) => { %>
+              <% if (!(compactTreeMode && section.anchor === "bank-card-notes")) { %>
+              <section class="section <%= section.compact ? 'section-compact' : '' %>" <%= section.anchor ? `id="${section.anchor}"` : '' %>>
+                <% if ((section.eyebrow || section.title || section.copy) && !(compactTreeMode && section.kind === "tree-tabs") && !(minimalFlowPage && section.kind === "flowchart")) { %>
+                  <div class="section-heading">
+                    <div>
+                      <% if (section.eyebrow) { %><p class="eyebrow"><%= section.eyebrow %></p><% } %>
+                      <% if (section.title) { %><h2><%= section.title %></h2><% } %>
+                    </div>
+                    <% if (section.copy) { %><p class="section-copy"><%= section.copy %></p><% } %>
+                  </div>
+                <% } %>
+
+                <% if (section.kind === "process") { %>
+                  <% if (section.items.length > 1) { %>
+                    <div class="step-switcher" data-step-switcher>
+                      <% section.items.forEach((item, index) => { %>
+                        <% const stepId = `${section.anchor || `section-${sectionIndex}`}-step-${index + 1}`; %>
+                        <button class="step-switcher-button <%= index === 0 ? 'is-active' : '' %>" type="button" data-step-target="<%= stepId %>">
+                          <span><%= item.step %></span>
+                          <strong><%= item.title %></strong>
+                        </button>
+                      <% }) %>
+                    </div>
+                  <% } %>
+                  <div class="process-grid">
+                    <% section.items.forEach((item, index) => { %>
+                      <% const stepId = `${section.anchor || `section-${sectionIndex}`}-step-${index + 1}`; %>
+                      <article id="<%= stepId %>" class="process-card <%= index === 0 ? 'is-active' : '' %>" data-step-card>
+                        <span class="process-step"><%= item.step %></span>
+                        <h3><%= item.title %></h3>
+                        <p><%= item.text %></p>
+                        <% if (item.meta?.length) { %>
+                          <div class="token-list process-meta">
+                            <% item.meta.forEach((entry) => { %>
+                              <span><%= entry %></span>
+                            <% }) %>
+                          </div>
+                        <% } %>
+                        <% if (item.href && item.cta) { %>
+                          <a class="inline-link" href="<%= item.href %>"><%= item.cta %></a>
+                        <% } %>
+                      </article>
+                    <% }) %>
+                  </div>
+                <% } %>
+
+                <% if (section.kind === "cards") { %>
+                  <div class="module-grid">
+                    <% section.items.forEach((item) => { %>
+                      <% const tag = item.href ? 'a' : 'article'; %>
+                      <<%= tag %> class="module-card <%= item.accent || '' %> <%= item.href ? 'module-link' : '' %>" <%= item.href ? `href="${item.href}"` : '' %>>
+                        <% if (item.tag) { %><span class="module-tag"><%= item.tag %></span><% } %>
+                        <h3><%= item.title %></h3>
+                        <p><%= item.body %></p>
+                        <% if (item.note) { %><small class="module-note"><%= item.note %></small><% } %>
+                      </<%= tag %>>
+                    <% }) %>
+                  </div>
+                <% } %>
+
+                <% if (section.kind === "compare") { %>
+                  <div class="compare-grid">
+                    <% section.items.forEach((item) => { %>
+                      <article class="compare-card">
+                        <h3><%= item.title %></h3>
+                        <ul>
+                          <% item.list.forEach((entry) => { %>
+                            <li><%= entry %></li>
+                          <% }) %>
+                        </ul>
+                      </article>
+                    <% }) %>
+                  </div>
+                <% } %>
+
+                <% if (section.kind === "checklist") { %>
+                  <div class="info-grid">
+                    <% section.items.forEach((item) => { %>
+                      <article class="info-card">
+                        <span class="module-tag"><%= item.tag %></span>
+                        <h3><%= item.title %></h3>
+                        <p><%= item.body %></p>
+                        <% if (item.list?.length) { %>
+                          <ul class="detail-list">
+                            <% item.list.forEach((entry) => { %>
+                              <li><%= entry %></li>
+                            <% }) %>
+                          </ul>
+                        <% } %>
+                      </article>
+                    <% }) %>
+                  </div>
+                <% } %>
+
+                <% if (section.kind === "tabs") { %>
+                  <div class="content-tabs" data-content-tabs>
+                    <div class="content-tab-list" role="tablist" aria-label="<%= section.title || 'Content tabs' %>">
+                      <% section.tabs.forEach((tab, index) => { %>
+                        <% const tabId = `${section.anchor || `section-${sectionIndex}`}-tab-${index + 1}`; %>
+                        <button
+                          class="content-tab-button <%= index === 0 ? 'is-active' : '' %>"
+                          type="button"
+                          role="tab"
+                          aria-selected="<%= index === 0 ? 'true' : 'false' %>"
+                          data-tab-target="<%= tabId %>"
+                        >
+                          <span><%= tab.kicker || `Tab ${index + 1}` %></span>
+                          <strong><%= tab.label %></strong>
+                        </button>
+                      <% }) %>
+                    </div>
+
+                    <div class="content-tab-panels">
+                      <% section.tabs.forEach((tab, index) => { %>
+                        <% const tabId = `${section.anchor || `section-${sectionIndex}`}-tab-${index + 1}`; %>
+                        <section
+                          id="<%= tabId %>"
+                          class="content-tab-panel <%= index === 0 ? 'is-active' : '' %>"
+                          role="tabpanel"
+                          data-tab-panel
+                        >
+                          <div class="content-tab-hero">
+                            <div>
+                              <span class="module-tag"><%= tab.kicker || tab.label %></span>
+                              <h3><%= tab.label %></h3>
+                              <% if (tab.description) { %><p><%= tab.description %></p><% } %>
+                            </div>
+                            <% if (tab.badges?.length) { %>
+                              <div class="token-list">
+                                <% tab.badges.forEach((badge) => { %>
+                                  <span><%= badge %></span>
+                                <% }) %>
+                              </div>
+                            <% } %>
+                          </div>
+
+                          <% if (tab.cards?.length) { %>
+                            <div class="module-grid">
+                              <% tab.cards.forEach((item) => { %>
+                                <article class="module-card <%= item.accent || '' %>">
+                                  <% if (item.tag) { %><span class="module-tag"><%= item.tag %></span><% } %>
+                                  <h3><%= item.title %></h3>
+                                  <p><%= item.body %></p>
+                                  <% if (item.note) { %><small class="module-note"><%= item.note %></small><% } %>
+                                </article>
+                              <% }) %>
+                            </div>
+                          <% } %>
+
+                          <% if (tab.steps?.length) { %>
+                            <div class="content-tab-steps">
+                              <% tab.steps.forEach((item) => { %>
+                                <article class="process-card is-active">
+                                  <span class="process-step"><%= item.step %></span>
+                                  <h3><%= item.title %></h3>
+                                  <p><%= item.text %></p>
+                                  <% if (item.meta?.length) { %>
+                                    <div class="token-list process-meta">
+                                      <% item.meta.forEach((entry) => { %>
+                                        <span><%= entry %></span>
+                                      <% }) %>
+                                    </div>
+                                  <% } %>
+                                </article>
+                              <% }) %>
+                            </div>
+                          <% } %>
+                        </section>
+                      <% }) %>
+                    </div>
+                  </div>
+                <% } %>
+
+                <% if (section.kind === "tree-tabs") { %>
+                  <div class="tree-tabs" data-tree-tabs>
+                    <div class="tree-content">
+                      <% section.groups.forEach((group, index) => { %>
+                        <% group.banks.forEach((bank, bankIndex) => { %>
+                          <% const panelId = bank.id || `${group.id || `group-${index + 1}`}-bank-${bankIndex + 1}`; %>
+                          <section
+                            id="<%= panelId %>"
+                            class="tree-panel <%= bank.markdownHtml ? 'tree-panel-flat' : '' %> <%= index === 0 && bankIndex === 0 ? 'is-active' : '' %>"
+                            role="tabpanel"
+                            data-tree-panel
+                          >
+                            <% if (bank.markdownHtml) { %>
+                              <div class="markdown-content markdown-content-flat"><%- bank.markdownHtml %></div>
+                            <% } else { %>
+                              <header class="tree-panel-head">
+                                <div>
+                                  <span class="module-tag"><%= group.kicker || group.label %></span>
+                                  <h3><%= bank.name %></h3>
+                                  <% if (bank.description) { %><p><%= bank.description %></p><% } %>
+                                </div>
+                                <div class="token-list">
+                                  <span><%= group.label %></span>
+                                  <% if (bank.alias) { %><span><%= bank.alias %></span><% } %>
+                                </div>
+                              </header>
+
+                              <article class="tree-bank-card">
+                                <div class="tree-bank-head">
+                                  <% if (bank.tag) { %><span class="module-tag"><%= bank.tag %></span><% } %>
+                                  <h4><%= bank.name %></h4>
+                                  <% if (group.description) { %><p><%= group.description %></p><% } %>
+                                </div>
+
+                                <div class="tree-bank-steps">
+                                  <% bank.steps.forEach((step) => { %>
+                                    <article class="process-card is-active">
+                                      <span class="process-step"><%= step.step %></span>
+                                      <h3><%= step.title %></h3>
+                                      <p><%= step.text %></p>
+                                      <% if (step.meta?.length) { %>
+                                        <div class="token-list process-meta">
+                                          <% step.meta.forEach((entry) => { %>
+                                            <span><%= entry %></span>
+                                          <% }) %>
+                                        </div>
+                                      <% } %>
+                                    </article>
+                                  <% }) %>
+                                </div>
+                              </article>
+                            <% } %>
+                          </section>
+                        <% }) %>
+                      <% }) %>
+                    </div>
+                  </div>
+                <% } %>
+
+                <% if (section.kind === "risks") { %>
+                  <div class="risk-list">
+                    <% section.items.forEach((item, index) => { %>
+                      <details class="risk-item" <%= index === 0 ? 'open' : '' %>>
+                        <summary>
+                          <span class="risk-chip"><%= item.level %></span>
+                          <strong><%= item.title %></strong>
+                        </summary>
+                        <p><%= item.body %></p>
+                        <% if (item.list?.length) { %>
+                          <ul class="detail-list">
+                            <% item.list.forEach((entry) => { %>
+                              <li><%= entry %></li>
+                            <% }) %>
+                          </ul>
+                        <% } %>
+                      </details>
+                    <% }) %>
+                  </div>
+                <% } %>
+
+                <% if (section.kind === "next-links") { %>
+                  <div class="module-grid">
+                    <% section.items.forEach((item) => { %>
+                      <a class="module-card module-link <%= item.accent || '' %>" href="<%= item.href %>">
+                        <% if (item.tag) { %><span class="module-tag"><%= item.tag %></span><% } %>
+                        <h3><%= item.title %></h3>
+                        <p><%= item.body %></p>
+                        <% if (item.note) { %><small class="module-note"><%= item.note %></small><% } %>
+                      </a>
+                    <% }) %>
+                  </div>
+                <% } %>
+
+                <% if (section.kind === "metrics") { %>
+                  <div class="dashboard-preview">
+                    <% section.items.forEach((item) => { %>
+                      <article class="metric-panel">
+                        <span><%= item.label %></span>
+                        <strong><%= item.value %></strong>
+                        <small><%= item.note %></small>
+                      </article>
+                    <% }) %>
+                  </div>
+                <% } %>
+
+                <% if (section.kind === "flowchart") { %>
+                  <div class="flowchart-shell">
+                    <div class="flowchart-track">
+                      <article class="flowchart-node flowchart-node-start">
+                        <strong><%= section.diagram.start %></strong>
+                      </article>
+
+                      <span class="flowchart-line"></span>
+
+                      <article class="flowchart-node">
+                        <strong><%= section.diagram.stepOne %></strong>
+                      </article>
+
+                      <span class="flowchart-line"></span>
+
+                      <article class="flowchart-node flowchart-node-small">
+                        <strong><%= section.diagram.stepTwo %></strong>
+                      </article>
+
+                      <span class="flowchart-line"></span>
+
+                      <article class="flowchart-node flowchart-node-small">
+                        <strong><%= section.diagram.stepThree %></strong>
+                      </article>
+
+                      <span class="flowchart-line"></span>
+
+                      <div class="flowchart-branch">
+                        <% section.diagram.branchOne.forEach((item) => { %>
+                          <article class="flowchart-node flowchart-node-branch">
+                            <strong><%= item %></strong>
+                          </article>
+                        <% }) %>
+                      </div>
+
+                      <span class="flowchart-line"></span>
+
+                      <article class="flowchart-node flowchart-node-hub">
+                        <strong><%= section.diagram.hub %></strong>
+                      </article>
+
+                      <span class="flowchart-line"></span>
+
+                      <div class="flowchart-branch">
+                        <% section.diagram.branchTwo.forEach((item) => { %>
+                          <article class="flowchart-node flowchart-node-branch">
+                            <strong><%= item %></strong>
+                          </article>
+                        <% }) %>
+                      </div>
+
+                      <span class="flowchart-line"></span>
+
+                      <article class="flowchart-node flowchart-node-end">
+                        <strong><%= section.diagram.end %></strong>
+                      </article>
+                    </div>
+                  </div>
+                <% } %>
+              </section>
+              <% } %>
+            <% }) %>
+
+            <% if (page.pagination) { %>
+              <nav class="doc-pagination" aria-label="Page navigation">
+                <% if (page.pagination.previous) { %>
+                  <a class="doc-pagination-link is-previous" href="<%= page.pagination.previous.href %>">
+                    <span>上一篇</span>
+                    <strong><%= page.pagination.previous.label %></strong>
+                  </a>
+                <% } %>
+                <% if (page.pagination.next) { %>
+                  <a class="doc-pagination-link is-next" href="<%= page.pagination.next.href %>">
+                    <span>下一步</span>
+                    <strong><%= page.pagination.next.label %></strong>
+                  </a>
+                <% } %>
+              </nav>
+            <% } %>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <script src="/app.js"></script>
+  </body>
+</html>

@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <%- include("partials/head", { page }) %>
+  <body data-page="<%= page.pageKey %>">
+    <div class="aurora aurora-left"></div>
+    <div class="aurora aurora-right"></div>
+
+    <div class="site-shell">
+      <%- include("partials/header", { site, currentPath }) %>
+
+      <main>
+        <section class="hero">
+          <div class="hero-copy">
+            <p class="eyebrow"><%= page.hero.eyebrow %></p>
+            <h1><%= page.hero.title %></h1>
+            <p class="hero-text"><%= page.hero.description %></p>
+
+            <div class="hero-actions">
+              <% page.hero.actions.forEach((action) => { %>
+                <a class="<%= action.variant === 'primary' ? 'primary-button' : 'ghost-button' %>" href="<%= action.href %>"><%= action.label %></a>
+              <% }) %>
+            </div>
+          </div>
+
+          <aside class="hero-panel home-summary-panel">
+            <div class="panel-head">
+              <span class="panel-tag"><%= page.hero.summaryTag %></span>
+              <h2><%= page.hero.summaryTitle %></h2>
+            </div>
+
+            <div class="summary-stack">
+              <% page.hero.summaryItems.forEach((item) => { %>
+                <article>
+                  <strong><%= item.index %></strong>
+                  <span><%= item.label %></span>
+                </article>
+              <% }) %>
+            </div>
+          </aside>
+        </section>
+
+        <section class="section home-entry-section">
+          <div class="home-entry-grid">
+            <% page.entryCards.forEach((card) => { %>
+              <a class="module-card <%= card.accent %> module-link home-entry-card" href="<%= card.href %>">
+                <span class="module-tag"><%= card.tag %></span>
+                <h3><%= card.title %></h3>
+                <p><%= card.body %></p>
+                <span class="entry-link"><%= card.cta %></span>
+              </a>
+            <% }) %>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="/app.js"></script>
+  </body>
+</html>

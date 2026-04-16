@@ -1,0 +1,15 @@
+<header class="topbar">
+  <a class="brand" href="/">
+    <span class="brand-mark">GW</span>
+    <span>
+      <strong><%= site.brandTitle %></strong>
+      <small><%= site.brandSubtitle %></small>
+    </span>
+  </a>
+
+  <nav class="topnav">
+    <% site.nav.forEach((item) => { %>
+      <a href="<%= item.href %>" class="<%= currentPath === item.href ? 'is-current' : '' %>"><%= item.label %></a>
+    <% }) %>
+  </nav>
+</header>

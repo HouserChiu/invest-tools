@@ -1,0 +1,14 @@
+{
+  "site": {
+    "title": "Global Wealth Routes",
+    "brandTitle": "Global Wealth Routes",
+    "brandSubtitle": "出海资金、账户与资产工具",
+    "nav": [
+      { "label": "首页", "href": "/" },
+      { "label": "股票", "href": "/stocks" },
+      { "label": "加密货币", "href": "/crypto" },
+      { "label": "电话卡", "href": "/sim" },
+      { "label": "持仓工具", "href": "/portfolio" }
+    ]
+  }
+}

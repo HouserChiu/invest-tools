@@ -1,0 +1,491 @@
+{
+  "sidebars": {
+    "offshore-crypto": {
+      "label": "加密货币目录",
+      "items": [
+        {
+          "label": "开户",
+          "href": "/crypto/accounts",
+          "children": [
+            { "kicker": "Exchange 01", "label": "OKX", "target": "crypto-account-okx" },
+            { "kicker": "Exchange 02", "label": "Binance", "target": "crypto-account-binance" },
+            { "kicker": "Exchange 03", "label": "Bitget", "target": "crypto-account-bitget" },
+            { "kicker": "Exchange 04", "label": "SafePal", "target": "crypto-account-safepal" },
+            { "kicker": "Exchange 05", "label": "Bybit", "target": "crypto-account-bybit" }
+          ]
+        },
+        {
+          "label": "入金",
+          "href": "/crypto/funding",
+          "children": [
+            { "kicker": "Method 01", "label": "C2C", "target": "crypto-funding-c2c" },
+            { "kicker": "Method 02", "label": "链上转入", "target": "crypto-funding-onchain" }
+          ]
+        },
+        {
+          "label": "出金",
+          "href": "/crypto/withdrawal",
+          "children": [
+            { "kicker": "Method 01", "label": "C2C", "target": "crypto-withdrawal-c2c" },
+            { "kicker": "Method 02", "label": "卓锐证券", "target": "crypto-withdrawal-zr" }
+          ]
+        },
+        {
+          "label": "消费",
+          "href": "/crypto/spending",
+          "children": [
+            { "kicker": "Card 01", "label": "Bitget", "target": "crypto-spending-bitget" },
+            { "kicker": "Card 02", "label": "Bybit", "target": "crypto-spending-bybit" },
+            { "kicker": "Card 03", "label": "SafePal", "target": "crypto-spending-safepal" }
+          ]
+        },
+        {
+          "label": "链上流转",
+          "href": "/crypto/onchain",
+          "children": [
+            { "kicker": "Flow 01", "label": "转账", "target": "crypto-onchain-transfer" },
+            { "kicker": "Flow 02", "label": "跨链桥", "target": "crypto-onchain-bridge" }
+          ]
+        },
+        {
+          "label": "美股链上投资",
+          "href": "/crypto/onchain-us-stocks",
+          "children": [
+            { "kicker": "Venue 01", "label": "Kraken", "target": "crypto-onchain-us-stocks-kraken" },
+            { "kicker": "Venue 02", "label": "Bybit", "target": "crypto-onchain-us-stocks-bybit" },
+            { "kicker": "Venue 03", "label": "Gate", "target": "crypto-onchain-us-stocks-gate" }
+          ]
+        }
+      ]
+    }
+  },
+  "pages": {
+    "crypto": {
+      "template": "doc",
+      "pageKey": "crypto",
+      "sidebar": "offshore-crypto",
+      "title": "加密货币",
+      "breadcrumb": [
+        { "label": "首页", "href": "/" },
+        { "label": "加密货币" }
+      ],
+      "hero": {
+        "eyebrow": "Offshore Crypto",
+        "title": "加密货币内容按交易所、资金流和链上使用组织",
+        "description": "这一部分按照你的文档，直接拆成开户、入金、出金、消费、链上流转和美股链上投资，不再套用通用投资框架。",
+        "tag": "Crypto Topics",
+        "panelTitle": "按真实动作拆页更贴近使用场景",
+        "panelBody": "新增内容可以直接归到对应主题页下。",
+        "badges": ["交易所", "C2C", "链上", "U 卡"],
+        "actions": [
+          { "label": "看开户", "href": "/crypto/accounts" },
+          { "label": "看链上流转", "href": "/crypto/onchain", "style": "ghost" }
+        ]
+      },
+      "sections": [
+        {
+          "kind": "next-links",
+          "eyebrow": "Topics",
+          "title": "加密货币栏目下的主题页",
+          "items": [
+            { "tag": "01", "title": "开户", "body": "整理各交易所开户和使用前提。", "href": "/crypto/accounts", "accent": "accent-rose" },
+            { "tag": "02", "title": "入金", "body": "收录 C2C 和链上转入。", "href": "/crypto/funding", "accent": "accent-teal" },
+            { "tag": "03", "title": "出金", "body": "收录 C2C 和券商承接路径。", "href": "/crypto/withdrawal", "accent": "accent-sand" },
+            { "tag": "04", "title": "消费", "body": "收录 U 卡和消费场景。", "href": "/crypto/spending", "accent": "accent-lime" },
+            { "tag": "05", "title": "链上流转", "body": "例如 OKX 到 Bitget，再到银行卡支付 ChatGPT 订阅这类链路。", "href": "/crypto/onchain", "accent": "accent-gold" },
+            { "tag": "06", "title": "美股链上投资", "body": "收录支持平台、优势和限制。", "href": "/crypto/onchain-us-stocks", "accent": "accent-ink" }
+          ]
+        }
+      ]
+    },
+    "crypto-accounts": {
+      "template": "doc",
+      "pageKey": "crypto",
+      "sidebar": "offshore-crypto",
+      "title": "加密货币 - 开户",
+      "breadcrumb": [
+        { "label": "首页", "href": "/" },
+        { "label": "加密货币", "href": "/crypto" },
+        { "label": "开户" }
+      ],
+      "hero": {
+        "eyebrow": "Crypto Accounts",
+        "title": "开户页按交易所整理",
+        "description": "收录各交易所的开户流程、可用性和使用前提。",
+        "tag": "Exchange Accounts",
+        "panelTitle": "先把交易所入口收齐",
+        "panelBody": "可继续扩展地区限制、资金流和使用分工。",
+        "badges": ["交易所", "开户", "地区", "可用性"]
+      },
+      "sections": [
+        {
+          "kind": "tree-tabs",
+          "anchor": "crypto-account-tabs",
+          "eyebrow": "Exchanges",
+          "title": "开户按交易所展开",
+          "copy": "左侧先选开户，再切换具体交易所，右侧直接看开户流程。",
+          "primary": {
+            "kicker": "Topic",
+            "label": "开户",
+            "note": "点击后展开交易所标签"
+          },
+          "groups": [
+            {
+              "id": "crypto-account-group",
+              "kicker": "Exchanges",
+              "label": "交易所",
+              "description": "收录 OKX、Binance、Bitget、SafePal、Bybit 五家，侧重开户流程和使用前提。",
+              "badges": ["OKX", "Binance", "Bitget", "SafePal", "Bybit"],
+              "banks": [
+                {
+                  "id": "crypto-account-okx",
+                  "tag": "Exchange 01",
+                  "name": "OKX",
+                  "description": "注册路径清楚，邮箱和手机号都要绑定，KYC 提交后通常在 24 小时内出结果。",
+                  "markdownPath": "content/crypto/accounts/okx.md"
+                },
+                {
+                  "id": "crypto-account-binance",
+                  "tag": "Exchange 02",
+                  "name": "Binance",
+                  "description": "Binance 的主线是先注册，再完成 KYC；未完成身份验证时功能会受限。",
+                  "markdownPath": "content/crypto/accounts/binance.md"
+                },
+                {
+                  "id": "crypto-account-bitget",
+                  "tag": "Exchange 03",
+                  "name": "Bitget",
+                  "description": "Bitget 注册步骤较轻，邮箱或手机号即可先建账户，完整功能仍需补 KYC。",
+                  "markdownPath": "content/crypto/accounts/bitget.md"
+                },
+                {
+                  "id": "crypto-account-safepal",
+                  "tag": "Exchange 04",
+                  "name": "SafePal",
+                  "description": "SafePal 是去中心化钱包，不是传统中心化交易所开户逻辑；钱包本身不需要注册和 KYC。",
+                  "markdownPath": "content/crypto/accounts/safepal.md"
+                },
+                {
+                  "id": "crypto-account-bybit",
+                  "tag": "Exchange 05",
+                  "name": "Bybit",
+                  "description": "Bybit 注册入口和 KYC 路径都很清晰，邮箱注册更适合长期持有和管理账户。",
+                  "markdownPath": "content/crypto/accounts/bybit.md"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "crypto-funding": {
+      "template": "doc",
+      "pageKey": "crypto",
+      "sidebar": "offshore-crypto",
+      "title": "加密货币 - 入金",
+      "breadcrumb": [
+        { "label": "首页", "href": "/" },
+        { "label": "加密货币", "href": "/crypto" },
+        { "label": "入金" }
+      ],
+      "hero": {
+        "eyebrow": "Crypto Funding",
+        "title": "入金页聚焦 C2C 和链上转入",
+        "description": "收录 C2C 和链上转入两种常见入金方式。",
+        "tag": "Funding",
+        "panelTitle": "按常用路径整理",
+        "panelBody": "可继续扩展平台差异、到账速度和风控体验。",
+        "badges": ["C2C", "链上转入", "交易所", "到账"]
+      },
+      "sections": [
+        {
+          "kind": "tree-tabs",
+          "anchor": "crypto-funding-tabs",
+          "eyebrow": "Funding",
+          "title": "入金按方式展开",
+          "copy": "左侧先选入金，再切换 C2C 或链上转入，右侧直接看流程和注意事项。",
+          "primary": {
+            "kicker": "Topic",
+            "label": "入金",
+            "note": "点击后展开入金方式"
+          },
+          "groups": [
+            {
+              "id": "crypto-funding-group",
+              "kicker": "Methods",
+              "label": "入金方式",
+              "description": "收录 C2C 和链上转入两条主线，侧重流程、到账和风险点。",
+              "badges": ["C2C", "链上转入"],
+              "banks": [
+                {
+                  "id": "crypto-funding-c2c",
+                  "tag": "Method 01",
+                  "name": "C2C",
+                  "description": "用法币直接向平台商家买币，到账后再转入现货账户，是多数人最常用的起步方式。",
+                  "markdownPath": "content/crypto/funding/c2c.md"
+                },
+                {
+                  "id": "crypto-funding-onchain",
+                  "tag": "Method 02",
+                  "name": "链上转入",
+                  "description": "从其他钱包或交易所把币转进当前平台，重点是网络一致、地址正确、Memo 填写完整。",
+                  "markdownPath": "content/crypto/funding/onchain.md"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "crypto-withdrawal": {
+      "template": "doc",
+      "pageKey": "crypto",
+      "sidebar": "offshore-crypto",
+      "title": "加密货币 - 出金",
+      "breadcrumb": [
+        { "label": "首页", "href": "/" },
+        { "label": "加密货币", "href": "/crypto" },
+        { "label": "出金" }
+      ],
+      "hero": {
+        "eyebrow": "Crypto Withdrawal",
+        "title": "出金页收录 C2C 和卓锐证券",
+        "description": "收录常见的 C2C 出金方式和券商承接港币路径。",
+        "tag": "Withdrawal",
+        "panelTitle": "先把退出路径讲清楚",
+        "panelBody": "可继续扩展限额、到账时间和风控细节。",
+        "badges": ["C2C", "卓锐证券", "出金", "风控"]
+      },
+      "sections": [
+        {
+          "kind": "tree-tabs",
+          "anchor": "crypto-withdrawal-tabs",
+          "eyebrow": "Withdrawal",
+          "title": "出金按方式展开",
+          "copy": "左侧先选出金，再切换 C2C 或卓锐证券，右侧直接看流程和注意事项。",
+          "primary": {
+            "kicker": "Topic",
+            "label": "出金",
+            "note": "点击后展开出金方式"
+          },
+          "groups": [
+            {
+              "id": "crypto-withdrawal-group",
+              "kicker": "Methods",
+              "label": "出金方式",
+              "description": "收录 C2C 和卓锐证券两条主线，分别对应法币成交和港币承接路径。",
+              "badges": ["C2C", "卓锐证券"],
+              "banks": [
+                {
+                  "id": "crypto-withdrawal-c2c",
+                  "tag": "Method 01",
+                  "name": "C2C",
+                  "description": "把币卖给平台商家并收人民币或其他法币，是最常见的退出方式之一，但要特别注意资金安全和账户风控。",
+                  "markdownPath": "content/crypto/withdrawal/c2c.md"
+                },
+                {
+                  "id": "crypto-withdrawal-zr",
+                  "tag": "Method 02",
+                  "name": "卓锐证券",
+                  "description": "卓锐证券具备虚拟资产能力，可作为加密货币转港币的候选路径。",
+                  "markdownPath": "content/crypto/withdrawal/zr.md"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "crypto-spending": {
+      "template": "doc",
+      "pageKey": "crypto",
+      "sidebar": "offshore-crypto",
+      "title": "加密货币 - 消费",
+      "breadcrumb": [
+        { "label": "首页", "href": "/" },
+        { "label": "加密货币", "href": "/crypto" },
+        { "label": "消费" }
+      ],
+      "hero": {
+        "eyebrow": "Crypto Spending",
+        "title": "消费页收录 U 卡",
+        "description": "收录 Bitget、Bybit、SafePal 等 U 卡产品和消费路径。",
+        "tag": "Usage",
+        "panelTitle": "消费场景单独整理",
+        "panelBody": "与链上流转、出金逻辑分开查看会更清晰。",
+        "badges": ["U 卡", "支付", "消费", "订阅"]
+      },
+      "sections": [
+        {
+          "kind": "tree-tabs",
+          "anchor": "crypto-spending-tabs",
+          "eyebrow": "Cards",
+          "title": "消费按 U 卡展开",
+          "copy": "左侧先选消费，再切换具体平台，右侧直接看底层发卡方和开通流程。",
+          "primary": {
+            "kicker": "Topic",
+            "label": "消费",
+            "note": "点击后展开 U 卡标签"
+          },
+          "groups": [
+            {
+              "id": "crypto-spending-group",
+              "kicker": "Cards",
+              "label": "U 卡",
+              "description": "收录 Bitget、Bybit、SafePal 三张常见加密货币消费卡，侧重底层发卡方、支持地区和开通路径。",
+              "badges": ["Bitget", "Bybit", "SafePal"],
+              "banks": [
+                {
+                  "id": "crypto-spending-bitget",
+                  "tag": "Card 01",
+                  "name": "Bitget",
+                  "description": "Bitget 卡按产品线和地区不同，底层合作方会变化；开卡核心仍然是 KYC、选地区、完成申请、再绑卡消费。",
+                  "markdownPath": "content/crypto/spending/bitget.md"
+                },
+                {
+                  "id": "crypto-spending-bybit",
+                  "tag": "Card 02",
+                  "name": "Bybit",
+                  "description": "Bybit Card 是较成熟的一条 U 卡线，底层发卡方按地区不同，主流卡组织以 Mastercard 为主。",
+                  "markdownPath": "content/crypto/spending/bybit.md"
+                },
+                {
+                  "id": "crypto-spending-safepal",
+                  "tag": "Card 03",
+                  "name": "SafePal",
+                  "description": "SafePal 属于银行网关加联名卡路线，公开合作核心是 Fiat24，账户开通后再拿卡消费。",
+                  "markdownPath": "content/crypto/spending/safepal.md"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "crypto-onchain": {
+      "template": "doc",
+      "pageKey": "crypto",
+      "sidebar": "offshore-crypto",
+      "title": "加密货币 - 链上流转",
+      "breadcrumb": [
+        { "label": "首页", "href": "/" },
+        { "label": "加密货币", "href": "/crypto" },
+        { "label": "链上流转" }
+      ],
+      "hero": {
+        "eyebrow": "Onchain Flow",
+        "title": "链上流转从转账开始",
+        "description": "收录链上转账和跨链桥，重点看 gas、费用和常见风险。",
+        "tag": "Transfers",
+        "panelTitle": "先把链上转账讲清楚",
+        "panelBody": "可继续扩展跨平台流转和真实案例。",
+        "badges": ["转账", "Gas", "常见链", "费用"]
+      },
+      "sections": [
+        {
+          "kind": "tree-tabs",
+          "anchor": "crypto-onchain-tabs",
+          "eyebrow": "Onchain",
+          "title": "链上流转按主题展开",
+          "copy": "左侧先选链上流转，再切换转账，右侧直接看 gas、费用和常见链。",
+          "primary": {
+            "kicker": "Topic",
+            "label": "链上流转",
+            "note": "点击后展开链上主题"
+          },
+          "groups": [
+            {
+              "id": "crypto-onchain-group",
+              "kicker": "Flow",
+              "label": "链上操作",
+              "description": "收录转账和跨链桥两条主线，侧重费用、网络和风险点。",
+              "badges": ["转账", "跨链桥"],
+              "banks": [
+                {
+                  "id": "crypto-onchain-transfer",
+                  "tag": "Flow 01",
+                  "name": "转账",
+                  "description": "先讲清楚 gas 是什么、怎么支付，以及以太坊、TRON、Solana、BNB Chain 等常见网络的大致费用差异。",
+                  "markdownPath": "content/crypto/onchain/transfer.md"
+                },
+                {
+                  "id": "crypto-onchain-bridge",
+                  "tag": "Flow 02",
+                  "name": "跨链桥",
+                  "description": "跨链桥用于把同一种资产从一条链转到另一条链，重点看桥费、两端 gas 和目标链支持情况。",
+                  "markdownPath": "content/crypto/onchain/bridge.md"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "crypto-onchain-us-stocks": {
+      "template": "doc",
+      "pageKey": "crypto",
+      "sidebar": "offshore-crypto",
+      "title": "加密货币 - 美股链上投资",
+      "breadcrumb": [
+        { "label": "首页", "href": "/" },
+        { "label": "加密货币", "href": "/crypto" },
+        { "label": "美股链上投资" }
+      ],
+      "hero": {
+        "eyebrow": "Onchain US Stocks",
+        "title": "美股链上投资按支持平台展开",
+        "description": "收录支持 tokenized stocks 的主流平台，以及优势和限制。",
+        "tag": "Tokenized Stocks",
+        "panelTitle": "先看平台，再看优劣势",
+        "panelBody": "重点是理解使用场景，以及和传统美股券商的差异。",
+        "badges": ["7x24", "流动性", "无股东权", "地区限制"]
+      },
+      "sections": [
+        {
+          "kind": "tree-tabs",
+          "anchor": "crypto-onchain-us-stocks-tabs",
+          "eyebrow": "Venues",
+          "title": "美股链上投资按平台展开",
+          "copy": "左侧先选美股链上投资，再切换具体平台，右侧直接看支持方式、优劣势和注意事项。",
+          "primary": {
+            "kicker": "Topic",
+            "label": "美股链上投资",
+            "note": "点击后展开支持平台"
+          },
+          "groups": [
+            {
+              "id": "crypto-onchain-us-stocks-group",
+              "kicker": "Platforms",
+              "label": "支持平台",
+              "description": "收录 Kraken、Bybit、Gate 三个平台。共同点是都支持 tokenized stocks，使用方式和限制并不完全一样。",
+              "badges": ["Kraken", "Bybit", "Gate"],
+              "banks": [
+                {
+                  "id": "crypto-onchain-us-stocks-kraken",
+                  "tag": "Venue 01",
+                  "name": "Kraken",
+                  "description": "Kraken 资料较完整，支持 xStocks，且已明确支持提到自托管钱包。",
+                  "markdownPath": "content/crypto/onchain-us-stocks/kraken.md"
+                },
+                {
+                  "id": "crypto-onchain-us-stocks-bybit",
+                  "tag": "Venue 02",
+                  "name": "Bybit",
+                  "description": "Bybit 已把 xStocks 放进现货市场，适合在单一交易所里同时处理 crypto 和 tokenized equities。",
+                  "markdownPath": "content/crypto/onchain-us-stocks/bybit.md"
+                },
+                {
+                  "id": "crypto-onchain-us-stocks-gate",
+                  "tag": "Venue 03",
+                  "name": "Gate",
+                  "description": "Gate 已上线独立的 tokenized stocks 分区，同时覆盖 xStocks 和 Ondo Stocks，产品形态更杂但选择更多。",
+                  "markdownPath": "content/crypto/onchain-us-stocks/gate.md"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

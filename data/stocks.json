@@ -1,0 +1,736 @@
+{
+  "sidebars": {
+    "offshore-stocks": {
+      "label": "股票目录",
+      "items": [
+        {
+          "label": "银行卡开户",
+          "href": "/stocks/bank-cards",
+          "children": [
+            {
+              "kicker": "Region 01",
+              "label": "香港卡",
+              "children": [
+                { "kicker": "Bank 01", "label": "BOCHK 中银香港", "target": "bank-card-hk-bochk" },
+                { "kicker": "Bank 02", "label": "HSBC HK", "target": "bank-card-hk-hsbc" },
+                { "kicker": "Bank 03", "label": "ZA Bank", "target": "bank-card-hk-za" },
+                { "kicker": "Bank 04", "label": "中信银行国际", "target": "bank-card-hk-cncbi" }
+              ]
+            },
+            {
+              "kicker": "Region 02",
+              "label": "美国卡",
+              "children": [
+                { "kicker": "Bank 01", "label": "East West Bank", "target": "bank-card-us-ewb" }
+              ]
+            },
+            {
+              "kicker": "Region 03",
+              "label": "新加坡卡",
+              "children": [
+                { "kicker": "Bank 01", "label": "OCBC", "target": "bank-card-sg-ocbc" }
+              ]
+            }
+          ]
+        },
+        {
+          "label": "券商开户",
+          "href": "/stocks/brokers",
+          "children": [
+            {
+              "kicker": "Region 01",
+              "label": "香港券商",
+              "children": [
+                { "kicker": "Broker 01", "label": "辉立HK", "target": "broker-hk-phillip" },
+                { "kicker": "Broker 02", "label": "USMART-HK", "target": "broker-hk-usmart" },
+                { "kicker": "Broker 03", "label": "卓锐", "target": "broker-hk-zhuorui" }
+              ]
+            },
+            {
+              "kicker": "Region 02",
+              "label": "美国券商",
+              "children": [
+                { "kicker": "Broker 01", "label": "IBKR盈透证券", "target": "broker-us-ibkr" },
+                { "kicker": "Broker 02", "label": "Firsttrade第一证券", "target": "broker-us-firsttrade" },
+                { "kicker": "Broker 03", "label": "嘉信理财", "target": "broker-us-schwab" }
+              ]
+            },
+            {
+              "kicker": "Region 03",
+              "label": "新加坡券商",
+              "children": [
+                { "kicker": "Broker 01", "label": "USMART-SG", "target": "broker-sg-usmart" }
+              ]
+            }
+          ]
+        },
+        {
+          "label": "入金到银行卡",
+          "href": "/stocks/bank-funding",
+          "children": [
+            {
+              "kicker": "Method 01",
+              "label": "SWIFT",
+              "target": "bank-funding-swift"
+            },
+            {
+              "kicker": "Method 02",
+              "label": "跨境支付通",
+              "target": "bank-funding-payment-connect"
+            }
+          ]
+        },
+        {
+          "label": "入金到券商",
+          "href": "/stocks/broker-funding",
+          "children": [
+            {
+              "kicker": "Method 01",
+              "label": "FPS",
+              "target": "broker-funding-fps"
+            },
+            {
+              "kicker": "Method 02",
+              "label": "EDDA",
+              "target": "broker-funding-edda"
+            },
+            {
+              "kicker": "Method 03",
+              "label": "电汇",
+              "target": "broker-funding-wire"
+            }
+          ]
+        },
+        {
+          "label": "出金回国",
+          "href": "/stocks/withdrawal",
+          "children": [
+            {
+              "kicker": "Topic 01",
+              "label": "收入证明",
+              "target": "withdrawal-income-proof"
+            }
+          ]
+        },
+        {
+          "label": "消费",
+          "href": "/stocks/spending",
+          "children": [
+            {
+              "kicker": "Topic 01",
+              "label": "银行卡绑定消费",
+              "target": "spending-bank-cards"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "pages": {
+    "stocks": {
+      "template": "doc",
+      "pageKey": "stocks",
+      "sidebar": "offshore-stocks",
+      "title": "股票",
+      "breadcrumb": [
+        { "label": "首页", "href": "/" },
+        { "label": "股票" }
+      ],
+      "hero": {
+        "eyebrow": "Offshore Stocks",
+        "title": "股票线围绕账户、资金进出和消费来组织",
+        "description": "按照你的 md，这一块不再讲抽象配置逻辑，而是先把港卡、美卡、券商、入金、出金回国和消费绑定这些真正会用到的主题分开。",
+        "tag": "Stock Topics",
+        "panelTitle": "先把基础设施讲明白",
+        "panelBody": "等账户体系和资金路径清楚之后，这条股票信息线就能稳定承接后续的开户、入金、出金和消费经验。",
+        "badges": ["港卡", "美卡", "券商", "入出金"],
+        "actions": [
+          { "label": "看银行卡开户", "href": "/stocks/bank-cards" },
+          { "label": "看券商开户", "href": "/stocks/brokers", "style": "ghost" }
+        ]
+      },
+      "sections": [
+        {
+          "kind": "next-links",
+          "eyebrow": "Topics",
+          "title": "股票栏目下的主题页",
+          "items": [
+            { "tag": "01", "title": "银行卡开户", "body": "主要看港卡，也补美卡、ITIN、华美这些与你文档相关的点。", "href": "/stocks/bank-cards", "accent": "accent-teal" },
+            { "tag": "02", "title": "券商开户", "body": "整理各类券商开户条件，以及还可以开的券商，比如辉立。", "href": "/stocks/brokers", "accent": "accent-sand" },
+            { "tag": "03", "title": "入金到银行卡", "body": "先收跨境支付通、SWIFT 等路径。", "href": "/stocks/bank-funding", "accent": "accent-lime" },
+            { "tag": "04", "title": "入金到券商", "body": "整理 FPS、EDDA、电汇等方式及各自适用场景。", "href": "/stocks/broker-funding", "accent": "accent-rose" },
+            { "tag": "05", "title": "出金回国", "body": "重点先围绕收入证明等现实问题展开。", "href": "/stocks/withdrawal", "accent": "accent-gold" },
+            { "tag": "06", "title": "消费", "body": "整理各种银行卡绑定消费的经验。", "href": "/stocks/spending", "accent": "accent-ink" }
+          ]
+        }
+      ]
+    },
+    "stocks-bank-cards": {
+      "template": "doc",
+      "pageKey": "stocks",
+      "sidebar": "offshore-stocks",
+      "title": "股票 - 银行卡开户",
+      "breadcrumb": [
+        { "label": "首页", "href": "/" },
+        { "label": "股票", "href": "/stocks" },
+        { "label": "银行卡开户" }
+      ],
+      "hero": {
+        "eyebrow": "Stock Banking",
+        "title": "银行卡开户先按地区拆成香港卡、美国卡和新加坡卡",
+        "description": "这一页先不做泛泛而谈的银行介绍，而是直接按你要的二级标签组织。每个标签下面放具体银行，再继续往下展开开户流程。",
+        "tag": "Bank Cards",
+        "panelTitle": "先看地区，再看具体银行和开户动作",
+        "panelBody": "这样更接近真实使用习惯，也方便后面持续补每家银行的材料、路径和注意事项。",
+        "badges": ["香港卡", "美国卡", "新加坡卡", "开户流程"]
+      },
+      "outline": [
+        { "label": "地区标签", "href": "#bank-card-tabs", "note": "香港卡、美国卡、新加坡卡" },
+        { "label": "开户说明", "href": "#bank-card-notes", "note": "先统一放共性准备事项" }
+      ],
+      "sections": [
+        {
+          "kind": "tree-tabs",
+          "anchor": "bank-card-tabs",
+          "eyebrow": "Regions",
+          "title": "银行卡开户按地区展开",
+          "copy": "左侧先选银行卡开户，中间切换香港卡、美国卡、新加坡卡，右侧直接看各家银行的开户流程。",
+          "primary": {
+            "kicker": "Topic",
+            "label": "银行卡开户",
+            "note": "点击后展开地区标签"
+          },
+          "groups": [
+            {
+              "id": "bank-card-hk",
+              "kicker": "Region 01",
+              "label": "香港卡",
+              "description": "香港卡是这一页的主线。当前先收你明确提到的中银香港、汇丰香港、ZA、中信银行国际，后续可以继续把每家银行的材料、预约方式和维护要求补完整。",
+              "badges": ["中银香港", "汇丰香港", "ZA", "中信银行国际"],
+              "banks": [
+                {
+                  "id": "bank-card-hk-bochk",
+                  "tag": "Bank 01",
+                  "name": "中银香港",
+                  "alias": "BOCHK",
+                  "description": "中国大陆居民持港澳通行证到香港，优先看手机开户是否可走；如果条件不满足，再改走分行现场办理。",
+                  "markdownPath": "content/stocks/bank-cards/bochk-hk.md",
+                  "steps": [
+                    { "step": "01", "title": "先判断能不能走手机开户", "text": "你人需要已经在香港，且是中银香港新客户或名下没有储蓄/往来账户；同时要持有有效中国大陆身份证、港澳通行证，两证自申请日起至少还有 30 天有效期，并能提供申请当日往前 7 天内签发的国家移民管理局出入境记录。", "meta": ["人在香港", "两证有效", "7 天内出入境记录"] },
+                    { "step": "02", "title": "准备基础材料", "text": "至少准备中国大陆身份证原件、港澳通行证原件、中国大陆手机号、常用邮箱、中国大陆住址和税务编号。去分行时建议再带近 3 个月住址证明，以及能解释职业、收入和资金来源的辅助资料，避免被要求补件。", "meta": ["身份证", "港澳通行证", "手机号", "住址证明"] },
+                    { "step": "03", "title": "按路径办理开户", "text": "如果符合条件，可在香港通过 BOCHK 手机银行 App 上传证件、做人脸识别并填写个人资料后提交；如果手机开户失败、资料较复杂，或你想更稳妥，建议直接预约中银香港分行，到场核验身份并回答开户用途、预计交易、职业收入和资金来源等问题。", "meta": ["手机 App", "分行预约", "身份核验"] },
+                    { "step": "04", "title": "开户后确认可用范围", "text": "手机开户在服务时间内成功提交后通常可即时使用，银行随后约 3 个工作天完成进一步审核。若你后续要开投资或证券相关服务，大陆身份证持有人通常仍需亲临分行补办；开户后也建议继续记录是否适合券商入金、日常消费和长期保留。", "meta": ["即时使用", "3 个工作天审核", "投资服务需到分行"] }
+                  ]
+                },
+                {
+                  "id": "bank-card-hk-hsbc",
+                  "tag": "Bank 02",
+                  "name": "汇丰香港",
+                  "alias": "HSBC HK",
+                  "description": "中国大陆居民持港澳通行证到香港开户，优先看 HSBC HK App 是否可直接申请；如线上不顺，再改走分行办理。",
+                  "markdownPath": "content/stocks/bank-cards/hsbc-hk.md",
+                  "steps": [
+                    { "step": "01", "title": "先判断能不能走 App 开户", "text": "你需要是汇丰新客户，年龄通常在 18 至 75 岁之间，并持有至少还有 6 个月有效期的港澳通行证。内地居民可在中国大陆或香港提交申请；如果人在香港申请，还需要准备出入境记录并允许 HSBC HK App 读取 GPS 定位。", "meta": ["18 至 75 岁", "港澳通行证", "GPS", "出入境记录"] },
+                    { "step": "02", "title": "准备基础材料", "text": "至少准备中国大陆身份证、港澳通行证、中国大陆手机号、常用邮箱、住址信息和税务编号。若改走分行，建议再带近 3 个月住址证明，以及能说明职业、收入和资金来源的辅助资料，避免被要求补件。", "meta": ["身份证", "港澳通行证", "手机号", "住址证明"] },
+                    { "step": "03", "title": "按路径办理开户", "text": "到香港后可直接通过 HSBC HK App 拍摄证件、做人脸识别并提交资料；若线上识别失败、资料较复杂，或你本来就计划办理更完整的财富管理服务，可以先联系分行或预约，再到指定分行现场核验身份并完成尽调。", "meta": ["HSBC HK App", "分行", "身份核验"] },
+                    { "step": "04", "title": "开户后确认限制与后续用途", "text": "汇丰官方说明，部分服务可在开户后即时使用，但某些功能会在下一工作天或审核完成后才开放。若你是非香港身份证持有人并计划办理 HSBC One，官方页面写明需先前往任何分行或电话预约，再到指定地点申请；后续若涉及投资或更高等级账户，分行路径通常更稳。", "meta": ["部分功能延后开放", "HSBC One", "指定地点", "投资服务"] }
+                  ]
+                },
+                {
+                  "id": "bank-card-hk-za",
+                  "tag": "Bank 03",
+                  "name": "ZA Bank",
+                  "alias": "ZA",
+                  "description": "ZA 是纯线上银行，但对内地访港客户的条件写得很细，重点先看自己是否符合官方资格，再决定是否尝试。",
+                  "markdownPath": "content/stocks/bank-cards/za-hk.md",
+                  "steps": [
+                    { "step": "01", "title": "先确认自己是否符合资格", "text": "ZA 官方对访港旅客的条件比较严格：你需要年满 18 岁、开户时身在香港、持有自开户日起至少有效 30 天的中国大陆居民身份证，并提供可在香港接收短信和电话的大陆手机号、与该手机号一致的大陆储蓄卡，以及国家移民管理局出入境记录。", "meta": ["人在香港", "大陆身份证", "大陆手机号", "大陆储蓄卡"] },
+                    { "step": "02", "title": "注意 ZA 的证件限制", "text": "官网明确写明，目前不接受仅使用护照或仅使用港澳通行证开户。也就是说，对中国大陆访港客户来说，港澳通行证并不是 ZA 的核心开户证件，主证件仍然是中国大陆居民身份证。", "meta": ["不接受仅用护照", "不接受仅用港澳通行证", "主证件是大陆身份证"] },
+                    { "step": "03", "title": "按 App 流程在线申请", "text": "符合条件后，直接通过 ZA Bank App 在线开户。ZA 建议开户时停留在香港主要区域，并按 App 指引完成证件读取、身份验证及资料填写。若手机支持 NFC，App 还会检查设备是否可用于读取身份证件信息。", "meta": ["ZA App", "香港主要区域", "NFC", "在线验证"] },
+                    { "step": "04", "title": "开户后确认能用什么", "text": "访港客户开出的 ZA 账户可用于港币/人民币/美元储蓄、1 港元起定存、本地转账与付款、收海外汇入、消费和 ATM 提款等；但官方也写明目前不提供个人贷款、保险及基金认购、支票结算和联名账户。加密货币服务则要求持香港身份证，访港客户不能开通。", "meta": ["储蓄", "本地转账", "ZA Card", "不支持贷款和基金"] }
+                  ]
+                },
+                {
+                  "id": "bank-card-hk-cncbi",
+                  "tag": "Bank 04",
+                  "name": "中信银行国际",
+                  "description": "中信银行国际更适合按路径区分：到港分行开户、见证开户，以及是否要顺手接入 inMotion 动感银行。",
+                  "markdownPath": "content/stocks/bank-cards/cncbi-hk.md",
+                  "steps": [
+                    { "step": "01", "title": "先选开户路径", "text": "对内地居民来说，中信银行国际主要有两条路：人在香港时直接到分行开户；或者如果你本身是中信集团客户并同时申请指定财富管理服务，可走内地见证开户。若不走指定见证服务，最直接的方式还是到香港分行。", "meta": ["香港分行", "内地见证", "中信集团客户"] },
+                    { "step": "02", "title": "准备开户材料", "text": "官网列出的核心材料包括中国大陆居民身份证、港澳通行证或护照，以及最近 3 个月住址证明。部分见证开户场景还要求你的港澳通行证逗留期超过 3 个月；到分行时也建议一并准备职业、收入和资金来源说明。", "meta": ["身份证", "港澳通行证", "住址证明", "资金来源"] },
+                    { "step": "03", "title": "按场景办理", "text": "如果在香港开户，带齐文件到分行办理即可；官网也提示可通过网上预约到指定分行开立账户。若走见证开户，则由内地指定网点或认可内地律师完成见证，中信银行国际再审核资料并处理开户申请。", "meta": ["分行办理", "网上预约", "见证开户", "资料审核"] },
+                    { "step": "04", "title": "开户后补齐使用能力", "text": "开户后可继续接入 inMotion 动感银行，处理日常消费、储蓄、转账和部分投资服务。官网还特别提醒，个人客户在分行开立支票或储蓄账户时，每个不同货币账户通常需备有 1,000 港元或等值外币的最低开户存款。", "meta": ["inMotion", "储蓄", "转账", "最低开户存款"] }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "bank-card-us",
+              "kicker": "Region 02",
+              "label": "美国卡",
+              "description": "美国卡目前先按你给出的华美 East West Bank 展开，后面如果你要补更多美国银行，可以继续往这个标签里加。",
+              "badges": ["East West Bank", "华美", "美国卡"],
+              "banks": [
+                {
+                  "id": "bank-card-us-ewb",
+                  "tag": "Bank 01",
+                  "name": "华美 East West Bank",
+                  "alias": "East West Bank",
+                  "description": "华美更适合按“是否要先联系客户经理/分行确认路径”来理解，而不是默认能直接自助线上开户。",
+                  "markdownPath": "content/stocks/bank-cards/ewb-us.md",
+                  "steps": [
+                    { "step": "01", "title": "先确认不要默认走自助线上开户", "text": "华美官网虽然展示了部分个人支票账户支持手机或在线申请，但并没有明确写清楚中国大陆普通个人、非美国居民是否一定适用。更稳的做法是先联系客户经理、分行或客服确认资格，再决定走哪条路径。", "meta": ["不要默认线上可开", "客户经理", "分行", "客服确认"] },
+                    { "step": "02", "title": "先让银行确认你要开的账户类型", "text": "开户前先问清楚银行准备给你安排的是日常支票账户，还是更偏跨境服务的账户。不同产品的门槛和费用差别很大，公开页面只能看到入口，真正适不适合你，通常要靠人工确认。", "meta": ["账户类型", "普通支票", "跨境账户", "人工确认"] },
+                    { "step": "03", "title": "按银行回复准备材料并申请", "text": "官网公开页没有集中列出一套适用于所有大陆普通个人客户的统一材料清单，所以更稳的是先按客户经理或分行要求准备中国护照、中国身份证、联系方式、地址、税务信息和资金来源说明，再走申请。", "meta": ["中国护照", "中国身份证", "税务信息", "资金来源"] },
+                    { "step": "04", "title": "重点确认跨境能力和开户成本", "text": "华美的优势在中美跨境能力，例如国际电汇、中国汇款、外币账户和个人国际银行服务；但某些跨境产品门槛并不低。以官网公开的 Global Checking 为例，最低开户存款为 25,000 美元，另有 300 美元开户费，所以一定要先确认成本。", "meta": ["国际电汇", "中国汇款", "25,000 美元", "300 美元开户费"] }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "bank-card-sg",
+              "kicker": "Region 03",
+              "label": "新加坡卡",
+              "description": "新加坡卡当前先按 OCBC 展开，适合作为独立区域支线来沉淀。",
+              "badges": ["OCBC", "新加坡卡"],
+              "banks": [
+                {
+                  "id": "bank-card-sg-ocbc",
+                  "tag": "Bank 01",
+                  "name": "OCBC",
+                  "description": "OCBC 适合准备去新加坡工作、学习或生活的人远程先开账户，不太适合纯粹为了拿一张新加坡卡而开。",
+                  "markdownPath": "content/stocks/bank-cards/ocbc-sg.md",
+                  "steps": [
+                    { "step": "01", "title": "先确认你是不是目标人群", "text": "OCBC 官方把这条远程开户路径定义给“准备来新加坡工作、学习或生活的人”。如果你只是想先备一张新加坡卡，但没有明确的新加坡落地计划，这条路径并不算特别稳。", "meta": ["去新加坡工作", "去新加坡学习", "去新加坡生活"] },
+                    { "step": "02", "title": "准备证件和迁居证明", "text": "中国大陆用户需要年满 18 岁，并持有带芯片的中国大陆电子护照和中国身份证。除此之外，官方还要求在申请时提供任一能证明你计划迁居新加坡的文件，例如新加坡工作 offer、学校录取通知、ICA 原则性批准信、新加坡租约/水电电话账单/购房证明，或有效的新加坡政府签发准证。", "meta": ["电子护照", "中国身份证", "迁居证明", "18 岁以上"] },
+                    { "step": "03", "title": "通过 OCBC App 远程申请", "text": "下载新加坡版 OCBC Digital App，选择外籍人士持电子护照开户，按指引读取护照和身份证，并完成身份验证。官网 FAQ 还写明，申请设备需要支持 NFC 和相机功能。", "meta": ["OCBC Digital App", "Foreigner with e-passport", "NFC", "相机"] },
+                    { "step": "04", "title": "开户后先完成首存和余额要求", "text": "成功开户后，系统会为你开出 SGD 的 Statement Savings Account 和 USD 的 Global Savings Account。官方要求首笔入金需在 90 天内，从你本人名下银行账户一次性转入至少 3,000 新元；同时非居民 Statement Savings Account 的最低余额为 1,000 新元，低于要求通常会有 10 新元月费，不过前 12 个月豁免。", "meta": ["90 天内首存", "3,000 新元", "最低余额 1,000 新元", "月费 10 新元"] }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "checklist",
+          "anchor": "bank-card-notes",
+          "eyebrow": "Common Notes",
+          "title": "银行卡开户页统一先记录这些共性信息",
+          "items": [
+            {
+              "tag": "Info 01",
+              "title": "开户方式",
+              "body": "不管是哪一地区的卡，都应该先明确是线上申请、预约见证还是线下办理。",
+              "list": ["线上能不能完成", "是否需要预约", "是否需要线下到场", "审核周期大概多久"]
+            },
+            {
+              "tag": "Info 02",
+              "title": "所需材料",
+              "body": "后续你补内容时，最好固定记录同一类字段，方便横向比较不同银行。",
+              "list": ["身份证件", "地址信息", "联系方式", "额外说明或补充材料"]
+            },
+            {
+              "tag": "Info 03",
+              "title": "开户后用途",
+              "body": "每张卡不只是开出来就结束，最好继续记录它适合承接哪些后续动作。",
+              "list": ["是否适合券商入金", "是否适合消费绑定", "维护成本", "长期保留价值"]
+            }
+          ]
+        }
+      ]
+    },
+    "stocks-brokers": {
+      "template": "doc",
+      "pageKey": "stocks",
+      "sidebar": "offshore-stocks",
+      "title": "股票 - 券商开户",
+      "breadcrumb": [
+        { "label": "首页", "href": "/" },
+        { "label": "股票", "href": "/stocks" },
+        { "label": "券商开户" }
+      ],
+      "hero": {
+        "eyebrow": "Brokers",
+        "title": "券商开户按地区拆成香港券商、美国券商和新加坡券商",
+        "description": "这一页直接按你给的券商名单做成树状标签，左侧展开地区和券商，右侧显示对应券商的开户说明。",
+        "tag": "Broker Setup",
+        "panelTitle": "先按地区分，再看具体券商",
+        "panelBody": "后续你补每家券商的资料、限制和开户链接时，可以直接挂到对应券商下面。",
+        "badges": ["香港券商", "美国券商", "新加坡券商", "开户说明"]
+      },
+      "sections": [
+        {
+          "kind": "tree-tabs",
+          "anchor": "broker-tabs",
+          "eyebrow": "Regions",
+          "title": "券商开户按地区展开",
+          "copy": "左侧先选券商开户，再切换香港券商、美国券商、新加坡券商，最后选择具体券商查看开户说明。",
+          "primary": {
+            "kicker": "Topic",
+            "label": "券商开户",
+            "note": "点击后展开地区标签"
+          },
+          "groups": [
+            {
+              "id": "broker-hk",
+              "kicker": "Region 01",
+              "label": "香港券商",
+              "description": "香港券商这一组先收辉立HK、USMART-HK、卓锐，后面可以继续补开户链接、支持地区和入金要求。",
+              "badges": ["辉立HK", "USMART-HK", "卓锐"],
+              "banks": [
+                {
+                  "id": "broker-hk-phillip",
+                  "tag": "Broker 01",
+                  "name": "辉立HK",
+                  "description": "辉立 HK 的关键不是能不能开户，而是你有没有香港银行账户可走全线上；没有的话，多半要改走见证、邮寄或到场路径。",
+                  "markdownPath": "content/stocks/brokers/phillip-hk.md",
+                  "steps": [
+                    { "step": "01", "title": "先确认你走哪条开户路径", "text": "辉立 HK 目前同时提供到场开户、网上开户和非亲身开户。最省事的是全线上开户，但官方明确要求申请人使用香港银行账户，从本人指定香港银行账户首笔转入至少 10,000 港元；如果你没有香港银行账户，就不要默认能直接线上开。", "meta": ["到场开户", "网上开户", "非亲身开户", "香港银行账户"] },
+                    { "step": "02", "title": "准备核心材料", "text": "官方列出的基础材料包括开户表格、W-8BEN、有效身份证明文件、3 个月内住址证明，以及银行账户证明。对中国大陆用户来说，常见组合一般是护照或其他有效身份证件，加住址证明，再配合银行账户证明去走对应路径。", "meta": ["开户表格", "W-8BEN", "身份证明", "住址证明", "银行账户证明"] },
+                    { "step": "03", "title": "没有香港银行账户时改走人工路径", "text": "如果你不满足网上开户条件，官方给了三种非亲身核验方式：邮寄开户并附上一张 10,000 港元的香港持牌银行个人划线支票；或把所有文件交由公证人、律师、会计师、银行分行经理等专业人士核证；或联系辉立客服，安排中国内地指定律师事务所见证服务。", "meta": ["划线支票 10,000 港元", "文件核证", "内地律师见证", "联系客服"] },
+                    { "step": "04", "title": "开户后再开通交易功能", "text": "辉立 HK 开好证券账户后，可继续使用 POEMS / Phillip HK App 处理港股、IPO、China Connect 和部分外股交易；官方 App FAQ 写明，线上申请提交后通常最多约 3 个工作天审批。若你后续要开美股、期权或其他交易服务，还要按产品继续申请对应权限。", "meta": ["POEMS", "Phillip HK App", "约 3 个工作天", "继续开通权限"] }
+                  ]
+                },
+                {
+                  "id": "broker-hk-usmart",
+                  "tag": "Broker 02",
+                  "name": "USMART-HK",
+                  "description": "uSMART-HK 对内地居民的开户材料要求更直接，核心是内地身份证加本人内地银行卡，线上门槛比传统港券商低一些。",
+                  "markdownPath": "content/stocks/brokers/usmart-hk.md",
+                  "steps": [
+                    { "step": "01", "title": "先确认开户门槛", "text": "uSMART-HK 对中国内地居民的官方开户文件要求比较简单，帮助中心直接写明是中国内地身份证或三个月有效期内的内地临时身份证，再加本人内地银行卡作验证用途。和很多传统港券商相比，这条路径更适合先做线上开户。", "meta": ["内地身份证", "临时身份证", "本人内地银行卡", "线上开户"] },
+                    { "step": "02", "title": "准备开户资料", "text": "按官方帮助中心准备身份证明和本人内地银行卡即可。香港居民开户需要地址证明，但帮助中心对中国内地居民这栏没有单独写入地址证明要求；实际申请时如系统要求补件，再按页面提示补交。", "meta": ["身份证明", "内地银行卡", "地址证明要求较少", "系统补件"] },
+                    { "step": "03", "title": "在线提交申请", "text": "uSMART-HK 的核心路径是线上开户。提交后可按 App 或网页流程完成身份验证和银行卡验证；如申请过程中遇到问题，可直接联系客服热线、WhatsApp 或邮件跟进。", "meta": ["App", "网页", "身份验证", "银行卡验证"] },
+                    { "step": "04", "title": "开户后再看入金和功能", "text": "账户开出后，再补看入金方式、支持市场、佣金结构和是否适合做主券商。uSMART-HK 本身是香港证监会持牌法团，页面也列出支持证券、期货、资管等牌照范围，后续可以继续按产品权限开通。", "meta": ["入金", "支持市场", "牌照范围", "继续开通权限"] }
+                  ]
+                },
+                {
+                  "id": "broker-hk-zhuorui",
+                  "tag": "Broker 03",
+                  "name": "卓锐",
+                  "description": "卓锐的区别点不只是港美A股交易，还包括虚拟资产相关能力；对想做股币切换的人，这一点很有辨识度。",
+                  "markdownPath": "content/stocks/brokers/zr-hk.md",
+                  "steps": [
+                    { "step": "01", "title": "先看卓锐的定位", "text": "卓锐不是单纯只做港股和美股的互联网券商。官网首页和公司介绍页都把“港股、美股、A股 + 虚拟资产”放在一起展示；对需要股币切换的人，卓锐的辨识度比普通港券商更强。", "meta": ["港股", "美股", "A股", "虚拟资产"] },
+                    { "step": "02", "title": "准备开户并联系客服确认材料", "text": "卓锐官网目前公开展示得更明确的是 App 下载、客服热线和帮助中心入口，开户材料细则在公开页上不像传统券商那样展开得很细。实际操作更适合先下载官方 App，再通过客服热线、邮件或帮助中心确认当下所需文件和补件要求。", "meta": ["官方 App", "客服热线", "帮助中心", "材料确认"] },
+                    { "step": "03", "title": "在线提交申请并跟进审核", "text": "卓锐的主路径是线上开户和线上交易。提交申请后，可通过客服热线、交易热线或邮件跟进审核进度；官网也反复提醒只使用官方站点和官方 App，避免误下假冒 App。", "meta": ["线上开户", "线上交易", "客服跟进", "防假冒 App"] },
+                    { "step": "04", "title": "开户后重点看股币能力", "text": "卓锐首页、费用页和公司介绍页都能确认其覆盖虚拟资产，费用页还单独列出了虚拟资产平台费、退币费用和提币费用。对想把加密货币接入券商体系、再处理法币与股票资产切换的人，这一块是卓锐最有辨识度的地方。", "meta": ["虚拟资产", "平台费", "退币费用", "提币费用"] }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "broker-us",
+              "kicker": "Region 02",
+              "label": "美国券商",
+              "description": "美国券商这一组先收 IBKR 盈透证券、Firsttrade 第一证券、嘉信理财。",
+              "badges": ["IBKR盈透证券", "Firsttrade第一证券", "嘉信理财"],
+              "banks": [
+                {
+                  "id": "broker-us-ibkr",
+                  "tag": "Broker 01",
+                  "name": "IBKR盈透证券",
+                  "description": "IBKR 适合做主券商，关键点不只是市场全，而是中国大陆用户的开户材料规则相对清楚，地址匹配时甚至可以免单独住址证明。",
+                  "markdownPath": "content/stocks/brokers/ibkr-us.md",
+                  "steps": [
+                    { "step": "01", "title": "先看账户开在哪", "text": "IBKR 官方中文开户页写明，亚洲居民（印度、日本除外）继续开户注册时，账户会开在美国的 Interactive Brokers LLC。对中国大陆用户来说，这一点决定了后续监管主体、资金路径和客服口径都按 IBLLC 走。", "meta": ["亚洲居民", "美国 IBLLC", "监管主体", "资金路径"] },
+                    { "step": "02", "title": "准备开户资料", "text": "中国大陆用户需要准备身份证明、税务信息、联系方式、雇主信息、资产收入信息、投资经验，以及用于入金的银行或第三方券商账户信息。官方“开户所需文件”页还写明，若中国身份证上的地址与申请填写的现住址一致，可不再单独提交住址证明。", "meta": ["身份证明", "税务信息", "资产收入", "地址匹配可免住址证明"] },
+                    { "step": "03", "title": "在线提交申请并补件", "text": "IBKR 的主路径是电子申请。申请过程中可上传文件，若补件不足，也可按官方页面说明通过邮箱提交扫描件。官方同时保留要求额外材料的权利，所以地址、姓名、证件信息一定要和申请表保持一致。", "meta": ["电子申请", "上传文件", "邮件补件", "信息一致"] },
+                    { "step": "04", "title": "开户后再看入金和市场权限", "text": "账户开出后，再继续补看入金路径、可交易市场、保证金、行情和费用结构。IBKR 的优势是全球市场覆盖广，更适合作为长期主券商；开户时先把基础资料过审，比一开始追求某一个交易权限更重要。", "meta": ["入金", "全球市场", "保证金", "主券商"] }
+                  ]
+                },
+                {
+                  "id": "broker-us-firsttrade",
+                  "tag": "Broker 02",
+                  "name": "Firsttrade第一证券",
+                  "description": "Firsttrade 对国际账户的官方口径很直接：中国在可开户名单内，国际账户只开个人户，且没有最低入金要求。",
+                  "markdownPath": "content/stocks/brokers/firsttrade-us.md",
+                  "steps": [
+                    { "step": "01", "title": "先确认能不能开户", "text": "Firsttrade 官方帮助中心写明，中国在国际账户可开户国家名单内；同时国际客户必须不是美国公民、不是美国永久居民，并且没有美国社会安全号或税号。国际客户目前只能开个人账户。", "meta": ["中国在可开户名单", "非美国公民", "无 SSN/TIN", "仅个人账户"] },
+                    { "step": "02", "title": "准备开户资料", "text": "官方帮助中心列出的国际账户材料很直接：国际账户申请表、W-8BEN、有效护照复印件，以及在邮寄地址和永久地址不一致时补交境外居住证明。对中国大陆用户来说，公开页并没有把中国身份证列成国际账户主证件，护照是关键。", "meta": ["申请表", "W-8BEN", "护照", "地址不一致时补居住证明"] },
+                    { "step": "03", "title": "在线提交并避开常见卡点", "text": "Firsttrade 国际账户常见卡点，官方帮助中心写得很直接：护照签字页缺失、护照照片不清晰，以及 FTIN 缺失。提交时把护照扫描件、签字页和税务信息一次备齐，能减少审核往返。", "meta": ["护照签字页", "扫描清晰", "FTIN", "减少补件"] },
+                    { "step": "04", "title": "开户后再看入金和使用场景", "text": "Firsttrade 官方帮助中心写明，国际账户没有最低入金要求。账户开出后，再继续补看入金路径、是否适合轻量长期持有、以及是否适合作为主券商或辅助券商使用。", "meta": ["无最低入金", "入金路径", "轻量持有", "主券商或辅助券商"] }
+                  ]
+                },
+                {
+                  "id": "broker-us-schwab",
+                  "tag": "Broker 03",
+                  "name": "嘉信理财",
+                  "description": "嘉信国际账户更适合长期主券商路线，关键点是住址证明要求明确，而且中国用户可用户口簿类文件做地址确认。",
+                  "markdownPath": "content/stocks/brokers/schwab-us.md",
+                  "steps": [
+                    { "step": "01", "title": "先看账户定位", "text": "嘉信国际账户更适合长期主券商路线。官网国际账户页写明可开 Schwab One International 账户，用来投资美股、ETF、债券、期权等美国市场产品，也支持支票、借记卡和国际电汇等现金管理能力。", "meta": ["主券商", "美股", "ETF", "现金管理"] },
+                    { "step": "02", "title": "准备开户材料", "text": "嘉信国际账户公开页列出的核心文件是 W-8BEN、当前有效护照复印件，以及住址证明原件或复印件。中国用户进入中国版开户流程时，系统还特别写明可用户口簿 / Residence Permit 来确认住址。", "meta": ["W-8BEN", "护照", "住址证明", "户口簿"] },
+                    { "step": "03", "title": "在线提交申请并确保地址一致", "text": "嘉信国际账户主路径是线上申请。流程里会要求填写当前居住地址，并上传后续住址文件；官网视频页反复提醒，申请里填写的地址必须和之后上传的住址证明一致，否则很容易被要求补件或重审。", "meta": ["线上申请", "地址一致", "上传文件", "补件风险"] },
+                    { "step": "04", "title": "开户后再看入金和交易能力", "text": "嘉信国际账户当前线上页写明，个人或联名账户没有最低入金要求。开户后再继续看入金方式、期权权限、国际电汇、借记卡和 ATM 返费等功能，适不适合作为主券商主要看你是否会长期使用它的完整账户体系。", "meta": ["无最低入金", "期权权限", "国际电汇", "ATM 返费"] }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "broker-sg",
+              "kicker": "Region 03",
+              "label": "新加坡券商",
+              "description": "新加坡券商当前先按 USMART-SG 展开。",
+              "badges": ["USMART-SG"],
+              "banks": [
+                {
+                  "id": "broker-sg-usmart",
+                  "tag": "Broker 01",
+                  "name": "USMART-SG",
+                  "description": "uSMART-SG 的特点是一户做新加坡、美国、香港市场，开户入口和入金方式都偏数字化，对想补一户新加坡券商的人比较友好。",
+                  "markdownPath": "content/stocks/brokers/usmart-sg.md",
+                  "steps": [
+                    { "step": "01", "title": "先看这户适合做什么", "text": "uSMART-SG 官方开户页写得很直接：一户可交易美国、香港和新加坡股票。对想补一个新加坡持牌券商、同时保留美股和港股交易入口的人，这户很适合作为区域补充账户。", "meta": ["美国股票", "香港股票", "新加坡股票", "区域补充账户"] },
+                    { "step": "02", "title": "走线上开户路径", "text": "uSMART-SG 官方开户页直接把入口放在网页和 App 上，并写明申请最快约 5 分钟。公开页当前没有像传统券商那样把开户材料展开得很细，实际操作更适合直接走官方入口，再按系统提示上传资料。", "meta": ["网页入口", "App", "约 5 分钟", "系统提示上传资料"] },
+                    { "step": "03", "title": "审核时直接走官方客服", "text": "申请过程中如遇问题，可直接联系官方客服热线或邮箱。帮助中心和开户页都公开了新加坡本地客服联系方式与分行地址，线上申请遇到补件时，优先走官方渠道确认最省时间。", "meta": ["客服热线", "邮箱", "分行地址", "补件确认"] },
+                    { "step": "04", "title": "开户后重点看入金方式", "text": "uSMART-SG 的一大优势是入金方式数字化程度高。官方公开页写明，新币支持 eGIRO、PayNow、FAST、Wise、BigPay 和电汇；美元和港币支持电汇、Wise 和 BigPay。对已经有新加坡本地支付能力的人，这户会更顺手。", "meta": ["eGIRO", "PayNow", "FAST", "Wise", "BigPay"] }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "stocks-bank-funding": {
+      "template": "doc",
+      "pageKey": "stocks",
+      "sidebar": "offshore-stocks",
+      "title": "股票 - 入金到银行卡",
+      "breadcrumb": [
+        { "label": "首页", "href": "/" },
+        { "label": "股票", "href": "/stocks" },
+        { "label": "入金到银行卡" }
+      ],
+      "hero": {
+        "eyebrow": "Bank Funding",
+        "title": "入金到银行卡先把路径收完整",
+        "description": "这一页当前先聚焦你已经列出的跨境支付通和 SWIFT，后面可以继续补各路径时效、成本和适用银行。",
+        "tag": "Funding Methods",
+        "panelTitle": "路径先明确，再补细节参数",
+        "panelBody": "这类页面很适合逐步沉淀实际体验和限制条件。",
+        "badges": ["跨境支付通", "SWIFT", "到账", "手续费"]
+      },
+      "sections": [
+        {
+          "kind": "tree-tabs",
+          "anchor": "bank-funding-tabs",
+          "eyebrow": "Methods",
+          "title": "入金到银行卡按方式展开",
+          "copy": "左侧先选入金到银行卡，再切换 SWIFT 和跨境支付通，右侧直接看对应流程。",
+          "primary": {
+            "kicker": "Topic",
+            "label": "入金到银行卡",
+            "note": "点击后展开方式标签"
+          },
+          "groups": [
+            {
+              "id": "bank-funding-swift-group",
+              "kicker": "Method 01",
+              "label": "SWIFT",
+              "description": "适合从中国大陆资金入金到香港、美国、新加坡银行卡。两种路径都要先购汇，再汇款。",
+              "badges": ["香港卡", "美国卡", "新加坡卡"],
+              "banks": [
+                {
+                  "id": "bank-funding-swift",
+                  "tag": "Method 01",
+                  "name": "SWIFT",
+                  "description": "适合从中国大陆资金入金到香港、美国、新加坡银行卡，路径更通用。",
+                  "markdownPath": "content/stocks/bank-funding/swift.md"
+                }
+              ]
+            },
+            {
+              "id": "bank-funding-payment-connect-group",
+              "kicker": "Method 02",
+              "label": "跨境支付通",
+              "description": "适合从中国大陆资金入金到香港银行卡。两种路径都要先购汇，再汇款。",
+              "badges": ["香港卡", "快到账", "高频"],
+              "banks": [
+                {
+                  "id": "bank-funding-payment-connect",
+                  "tag": "Method 02",
+                  "name": "跨境支付通",
+                  "description": "适合从中国大陆资金入金到香港银行卡，路径更偏低额、高频、快到账。",
+                  "markdownPath": "content/stocks/bank-funding/payment-connect.md"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "stocks-broker-funding": {
+      "template": "doc",
+      "pageKey": "stocks",
+      "sidebar": "offshore-stocks",
+      "title": "股票 - 入金到券商",
+      "breadcrumb": [
+        { "label": "首页", "href": "/" },
+        { "label": "股票", "href": "/stocks" },
+        { "label": "入金到券商" }
+      ],
+      "hero": {
+        "eyebrow": "Broker Funding",
+        "title": "入金到券商重点放在方式差异上",
+        "description": "按照你的文档，这页先围绕 FPS、EDDA、电汇展开，后续再补各券商支持情况和具体操作经验。",
+        "tag": "Funding Methods",
+        "panelTitle": "不同券商支持不同路径",
+        "panelBody": "这页适合做成方法库和券商支持矩阵。",
+        "badges": ["FPS", "EDDA", "电汇", "券商支持"]
+      },
+      "sections": [
+        {
+          "kind": "tree-tabs",
+          "anchor": "broker-funding-tabs",
+          "eyebrow": "Methods",
+          "title": "入金到券商按方式展开",
+          "copy": "左侧先选入金到券商，再切换 FPS、EDDA、电汇，右侧直接看对应流程。",
+          "primary": {
+            "kicker": "Topic",
+            "label": "入金到券商",
+            "note": "点击后展开方式标签"
+          },
+          "groups": [
+            {
+              "id": "broker-funding-methods",
+              "kicker": "Method Group",
+              "label": "入金方式",
+              "description": "当前先收 FPS、EDDA、电汇。后续可以继续补各券商支持情况和实际到账体验。",
+              "badges": ["FPS", "EDDA", "电汇"],
+              "banks": [
+                {
+                  "id": "broker-funding-fps",
+                  "tag": "Method 01",
+                  "name": "FPS",
+                  "description": "适合香港本地快速转账入金，路径轻、速度快。",
+                  "markdownPath": "content/stocks/broker-funding/fps.md"
+                },
+                {
+                  "id": "broker-funding-edda",
+                  "tag": "Method 02",
+                  "name": "EDDA",
+                  "description": "适合绑定香港银行账户后做自动扣款入金，体验更接近券商内直连入金。",
+                  "markdownPath": "content/stocks/broker-funding/edda.md"
+                },
+                {
+                  "id": "broker-funding-wire",
+                  "tag": "Method 03",
+                  "name": "电汇",
+                  "description": "适合跨境、大额或不支持 FPS / EDDA 的券商入金路径。",
+                  "markdownPath": "content/stocks/broker-funding/wire.md"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "stocks-withdrawal": {
+      "template": "doc",
+      "pageKey": "stocks",
+      "sidebar": "offshore-stocks",
+      "title": "股票 - 出金回国",
+      "breadcrumb": [
+        { "label": "首页", "href": "/" },
+        { "label": "股票", "href": "/stocks" },
+        { "label": "出金回国" }
+      ],
+      "hero": {
+        "eyebrow": "Withdrawal",
+        "title": "出金回国页面先围绕现实障碍整理",
+        "description": "当前你文档里明确写到收入证明，所以这页先从实际会卡住的材料和说明入手，而不是只写流程。",
+        "tag": "Back to Mainland",
+        "panelTitle": "先讲能否顺利回国",
+        "panelBody": "后续可以继续补银行侧要求、金额分层和沟通经验。",
+        "badges": ["出金", "回国", "收入证明", "材料"]
+      },
+      "sections": [
+        {
+          "kind": "tree-tabs",
+          "anchor": "withdrawal-tabs",
+          "eyebrow": "Topics",
+          "title": "出金回国按主题展开",
+          "copy": "左侧先选出金回国，再进入对应主题，右侧直接看 md 内容。",
+          "primary": {
+            "kicker": "Topic",
+            "label": "出金回国",
+            "note": "点击后展开主题标签"
+          },
+          "groups": [
+            {
+              "id": "withdrawal-topics",
+              "kicker": "Topic Group",
+              "label": "出金主题",
+              "description": "当前先从收入证明开始，后续再补银行追问、金额分层和沟通经验。",
+              "badges": ["收入证明"],
+              "banks": [
+                {
+                  "id": "withdrawal-income-proof",
+                  "tag": "Topic 01",
+                  "name": "收入证明",
+                  "description": "先把出金回国最容易卡住的收入证明单独拆出来。",
+                  "markdownPath": "content/stocks/withdrawal/income-proof.md"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "stocks-spending": {
+      "template": "doc",
+      "pageKey": "stocks",
+      "sidebar": "offshore-stocks",
+      "title": "股票 - 消费",
+      "breadcrumb": [
+        { "label": "首页", "href": "/" },
+        { "label": "股票", "href": "/stocks" },
+        { "label": "消费" }
+      ],
+      "hero": {
+        "eyebrow": "Spending",
+        "title": "消费页先整理银行卡绑定消费",
+        "description": "这一页用来沉淀各种银行卡在支付和订阅中的绑定消费经验，让账户体系和日常使用接起来。",
+        "tag": "Usage",
+        "panelTitle": "把开户后的日常使用也收进来",
+        "panelBody": "这样网站就不只是开户说明，还能承接后续真实使用场景。",
+        "badges": ["消费", "绑定", "银行卡", "订阅"]
+      },
+      "sections": [
+        {
+          "kind": "tree-tabs",
+          "anchor": "spending-tabs",
+          "eyebrow": "Topics",
+          "title": "消费按主题展开",
+          "copy": "左侧先选消费，再进入对应主题，右侧直接看 md 内容。",
+          "primary": {
+            "kicker": "Topic",
+            "label": "消费",
+            "note": "点击后展开主题标签"
+          },
+          "groups": [
+            {
+              "id": "spending-topics",
+              "kicker": "Topic Group",
+              "label": "消费主题",
+              "description": "当前先从银行卡绑定消费开始，后续再补支付平台、订阅服务和日常使用经验。",
+              "badges": ["银行卡绑定消费"],
+              "banks": [
+                {
+                  "id": "spending-bank-cards",
+                  "tag": "Topic 01",
+                  "name": "银行卡绑定消费",
+                  "description": "先把开户后的实际消费使用场景收进来。",
+                  "markdownPath": "content/stocks/spending/bank-cards.md"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

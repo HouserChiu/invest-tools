@@ -1,5 +1,6 @@
 const express = require("express");
 const mysql = require("mysql2/promise");
+const { marked } = require("marked");
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
@@ -41,10 +42,19 @@ const COINGECKO_SYMBOL_MAP = {
 const BINANCE_QUOTE_PRIORITY = ["USDT", "USDC", "BUSD", "FDUSD", "USD"];
 const BINANCE_DIRECT_QUOTES = new Set(["USD", "USDT", "USDC", "BUSD", "FDUSD"]);
 const CCXT_FALLBACK_QUOTES = ["USDT", "USD", "USDC"];
+const CONTENT_FILES = [
+  path.join(__dirname, "data", "site.json"),
+  path.join(__dirname, "data", "home.json"),
+  path.join(__dirname, "data", "stocks.json"),
+  path.join(__dirname, "data", "crypto.json"),
+  path.join(__dirname, "data", "sim.json"),
+  path.join(__dirname, "data", "portfolio.json"),
+];
 
 const app = express();
 let lastAlphaVantageRequestAt = 0;
 const execFileAsync = promisify(execFile);
+let databaseReady = false;
 
 function getLanAddresses() {
   const interfaces = require("os").networkInterfaces();
@@ -93,8 +103,109 @@ const pool = mysql.createPool({
   namedPlaceholders: true,
 });
 
+app.set("views", path.join(__dirname, "views"));
+app.set("view engine", "ejs");
 app.use(express.json());
-app.use(express.static(path.join(__dirname)));
+
+marked.setOptions({
+  gfm: true,
+  breaks: true,
+});
+
+function renderMarkdownFile(markdownPath) {
+  if (!markdownPath) return null;
+
+  const fullPath = path.join(__dirname, markdownPath);
+  if (!fs.existsSync(fullPath)) return null;
+
+  const raw = fs.readFileSync(fullPath, "utf8");
+  return marked.parse(raw);
+}
+
+function enrichMarkdownContent(value) {
+  if (Array.isArray(value)) {
+    return value.map((item) => enrichMarkdownContent(item));
+  }
+
+  if (!value || typeof value !== "object") {
+    return value;
+  }
+
+  const next = Object.fromEntries(
+    Object.entries(value).map(([key, entry]) => [key, enrichMarkdownContent(entry)])
+  );
+
+  if (next.markdownPath) {
+    next.markdownHtml = renderMarkdownFile(next.markdownPath);
+  }
+
+  return next;
+}
+
+function loadSiteContent() {
+  return CONTENT_FILES.reduce(
+    (accumulator, filePath) => {
+      const content = JSON.parse(fs.readFileSync(filePath, "utf8"));
+
+      if (content.site) {
+        accumulator.site = { ...accumulator.site, ...content.site };
+      }
+
+      if (content.sidebars) {
+        accumulator.sidebars = { ...accumulator.sidebars, ...content.sidebars };
+      }
+
+      if (content.pages) {
+        accumulator.pages = {
+          ...accumulator.pages,
+          ...Object.fromEntries(Object.entries(content.pages).map(([key, page]) => [key, enrichMarkdownContent(page)])),
+        };
+      }
+
+      return accumulator;
+    },
+    { site: {}, sidebars: {}, pages: {} }
+  );
+}
+
+function getPageContent(key) {
+  const siteContent = loadSiteContent();
+  const page = siteContent.pages[key];
+
+  if (!page) {
+    return null;
+  }
+
+  return {
+    site: siteContent.site,
+    sidebars: siteContent.sidebars,
+    page,
+  };
+}
+
+function renderPage(res, key, currentPath) {
+  const content = getPageContent(key);
+
+  if (!content) {
+    res.status(404).send("Page not found");
+    return;
+  }
+
+  res.render(content.page.template, {
+    site: content.site,
+    page: content.page,
+    sidebar: content.page.sidebar ? content.sidebars[content.page.sidebar] : null,
+    currentPath,
+  });
+}
+
+function requireDatabase(_req, res, next) {
+  if (!databaseReady) {
+    return res.status(503).json({ error: "Database is not available yet" });
+  }
+
+  next();
+}
 
 function createId() {
   return crypto.randomUUID();
@@ -1215,10 +1326,123 @@ async function ensureSchema() {
   await pool.query("DELETE FROM sessions WHERE expires_at <= NOW()");
 }
 
+app.get("/", (_req, res) => {
+  renderPage(res, "home", "/");
+});
+
+app.get("/stocks", (_req, res) => {
+  renderPage(res, "stocks", "/stocks");
+});
+
+app.get("/stocks/bank-cards", (_req, res) => {
+  renderPage(res, "stocks-bank-cards", "/stocks/bank-cards");
+});
+
+app.get("/stocks/brokers", (_req, res) => {
+  renderPage(res, "stocks-brokers", "/stocks/brokers");
+});
+
+app.get("/stocks/bank-funding", (_req, res) => {
+  renderPage(res, "stocks-bank-funding", "/stocks/bank-funding");
+});
+
+app.get("/stocks/broker-funding", (_req, res) => {
+  renderPage(res, "stocks-broker-funding", "/stocks/broker-funding");
+});
+
+app.get("/stocks/withdrawal", (_req, res) => {
+  renderPage(res, "stocks-withdrawal", "/stocks/withdrawal");
+});
+
+app.get("/stocks/spending", (_req, res) => {
+  renderPage(res, "stocks-spending", "/stocks/spending");
+});
+
+app.get("/crypto", (_req, res) => {
+  renderPage(res, "crypto", "/crypto");
+});
+
+app.get("/crypto/accounts", (_req, res) => {
+  renderPage(res, "crypto-accounts", "/crypto/accounts");
+});
+
+app.get("/crypto/funding", (_req, res) => {
+  renderPage(res, "crypto-funding", "/crypto/funding");
+});
+
+app.get("/crypto/withdrawal", (_req, res) => {
+  renderPage(res, "crypto-withdrawal", "/crypto/withdrawal");
+});
+
+app.get("/crypto/spending", (_req, res) => {
+  renderPage(res, "crypto-spending", "/crypto/spending");
+});
+
+app.get("/crypto/onchain", (_req, res) => {
+  renderPage(res, "crypto-onchain", "/crypto/onchain");
+});
+
+app.get("/crypto/onchain-us-stocks", (_req, res) => {
+  renderPage(res, "crypto-onchain-us-stocks", "/crypto/onchain-us-stocks");
+});
+
+app.get("/sim", (_req, res) => {
+  renderPage(res, "sim", "/sim");
+});
+
+app.get("/sim/hk", (_req, res) => {
+  renderPage(res, "sim-hk", "/sim/hk");
+});
+
+app.get("/sim/us", (_req, res) => {
+  renderPage(res, "sim-us", "/sim/us");
+});
+
+app.get("/portfolio", (_req, res) => {
+  renderPage(res, "portfolio", "/portfolio");
+});
+
+app.get("/index.html", (_req, res) => res.redirect(302, "/"));
+app.get("/offshore", (_req, res) => res.redirect(302, "/"));
+app.get("/offshore/stocks", (_req, res) => res.redirect(302, "/stocks"));
+app.get("/offshore/stocks/bank-cards", (_req, res) => res.redirect(302, "/stocks/bank-cards"));
+app.get("/offshore/stocks/brokers", (_req, res) => res.redirect(302, "/stocks/brokers"));
+app.get("/offshore/stocks/bank-funding", (_req, res) => res.redirect(302, "/stocks/bank-funding"));
+app.get("/offshore/stocks/broker-funding", (_req, res) => res.redirect(302, "/stocks/broker-funding"));
+app.get("/offshore/stocks/withdrawal", (_req, res) => res.redirect(302, "/stocks/withdrawal"));
+app.get("/offshore/stocks/spending", (_req, res) => res.redirect(302, "/stocks/spending"));
+app.get("/offshore/crypto", (_req, res) => res.redirect(302, "/crypto"));
+app.get("/offshore/crypto/accounts", (_req, res) => res.redirect(302, "/crypto/accounts"));
+app.get("/offshore/crypto/funding", (_req, res) => res.redirect(302, "/crypto/funding"));
+app.get("/offshore/crypto/withdrawal", (_req, res) => res.redirect(302, "/crypto/withdrawal"));
+app.get("/offshore/crypto/spending", (_req, res) => res.redirect(302, "/crypto/spending"));
+app.get("/offshore/crypto/onchain", (_req, res) => res.redirect(302, "/crypto/onchain"));
+app.get("/offshore/crypto/onchain-us-stocks", (_req, res) => res.redirect(302, "/crypto/onchain-us-stocks"));
+app.get("/stocks/accounts", (_req, res) => res.redirect(302, "/stocks/bank-cards"));
+app.get("/stocks/allocation", (_req, res) => res.redirect(302, "/stocks/brokers"));
+app.get("/stocks/monitoring", (_req, res) => res.redirect(302, "/stocks/broker-funding"));
+app.get("/crypto/fiat", (_req, res) => res.redirect(302, "/crypto/funding"));
+app.get("/crypto/wallets", (_req, res) => res.redirect(302, "/crypto/accounts"));
+app.get("/stocks.html", (_req, res) => res.redirect(302, "/stocks"));
+app.get("/stocks-accounts.html", (_req, res) => res.redirect(302, "/stocks/bank-cards"));
+app.get("/stocks-allocation.html", (_req, res) => res.redirect(302, "/stocks/brokers"));
+app.get("/stocks-monitoring.html", (_req, res) => res.redirect(302, "/stocks/broker-funding"));
+app.get("/crypto.html", (_req, res) => res.redirect(302, "/crypto"));
+app.get("/crypto-fiat.html", (_req, res) => res.redirect(302, "/crypto/funding"));
+app.get("/crypto-wallets.html", (_req, res) => res.redirect(302, "/crypto/accounts"));
+app.get("/crypto-onchain.html", (_req, res) => res.redirect(302, "/crypto/onchain"));
+app.get("/portfolio.html", (_req, res) => res.redirect(302, "/portfolio"));
+
+app.use(express.static(path.join(__dirname), { index: false, redirect: false }));
+
 app.get("/api/health", async (_req, res) => {
   try {
+    if (!databaseReady) {
+      return res.json({ ok: true, databaseReady: false, host: HOST, port: PORT, lanAddresses: getLanAddresses() });
+    }
+
     await pool.query("SELECT 1");
-    res.json({ ok: true, host: HOST, port: PORT, lanAddresses: getLanAddresses() });
+    res.json({ ok: true, databaseReady: true, host: HOST, port: PORT, lanAddresses: getLanAddresses() });
   } catch (error) {
     res.status(500).json({ ok: false, error: error.message });
   }
@@ -1235,7 +1459,7 @@ app.get("/api/config/public", (_req, res) => {
   });
 });
 
-app.get("/api/auth/session", async (req, res) => {
+app.get("/api/auth/session", requireDatabase, async (req, res) => {
   const user = await getAuthenticatedUser(req);
   res.json({ user });
 });
@@ -1334,15 +1558,15 @@ async function registerOrLogin(req, res, { allowAutoLogin = false } = {}) {
   }
 }
 
-app.post("/api/auth/entry", async (req, res) => {
+app.post("/api/auth/entry", requireDatabase, async (req, res) => {
   await registerOrLogin(req, res, { allowAutoLogin: true });
 });
 
-app.post("/api/auth/register", async (req, res) => {
+app.post("/api/auth/register", requireDatabase, async (req, res) => {
   await registerOrLogin(req, res, { allowAutoLogin: false });
 });
 
-app.post("/api/auth/login", async (req, res) => {
+app.post("/api/auth/login", requireDatabase, async (req, res) => {
   const username = normalizeUsername(req.body.username);
   const password = String(req.body.password || "");
 
@@ -1358,12 +1582,12 @@ app.post("/api/auth/login", async (req, res) => {
   res.json({ user: mapUser(userRow) });
 });
 
-app.post("/api/auth/logout", async (req, res) => {
+app.post("/api/auth/logout", requireDatabase, async (req, res) => {
   await revokeSession(req, res);
   res.status(204).end();
 });
 
-app.get("/api/holdings", authMiddleware, async (req, res) => {
+app.get("/api/holdings", requireDatabase, authMiddleware, async (req, res) => {
   const [rows] = await pool.query(
     "SELECT * FROM holdings WHERE user_id = ? ORDER BY updated_at DESC, created_at DESC",
     [req.user.id]
@@ -1371,7 +1595,7 @@ app.get("/api/holdings", authMiddleware, async (req, res) => {
   res.json(rows.map(mapRow));
 });
 
-app.post("/api/prices/refresh", authMiddleware, async (req, res) => {
+app.post("/api/prices/refresh", requireDatabase, authMiddleware, async (req, res) => {
   try {
     const result = await refreshMarketPrices(req.user.id);
     const [rows] = await pool.query(
@@ -1387,7 +1611,7 @@ app.post("/api/prices/refresh", authMiddleware, async (req, res) => {
   }
 });
 
-app.post("/api/holdings", authMiddleware, async (req, res) => {
+app.post("/api/holdings", requireDatabase, authMiddleware, async (req, res) => {
   try {
     const holding = normalizeHolding(req.body);
     await pool.query(
@@ -1408,7 +1632,7 @@ app.post("/api/holdings", authMiddleware, async (req, res) => {
   }
 });
 
-app.put("/api/holdings/:id", authMiddleware, async (req, res) => {
+app.put("/api/holdings/:id", requireDatabase, authMiddleware, async (req, res) => {
   try {
     const holding = normalizeHolding({ ...req.body, id: req.params.id });
     const [result] = await pool.query(
@@ -1445,7 +1669,7 @@ app.put("/api/holdings/:id", authMiddleware, async (req, res) => {
   }
 });
 
-app.delete("/api/holdings/:id", authMiddleware, async (req, res) => {
+app.delete("/api/holdings/:id", requireDatabase, authMiddleware, async (req, res) => {
   const [result] = await pool.query("DELETE FROM holdings WHERE id = ? AND user_id = ?", [req.params.id, req.user.id]);
   if (result.affectedRows === 0) {
     return res.status(404).json({ error: "Holding not found" });
@@ -1453,7 +1677,7 @@ app.delete("/api/holdings/:id", authMiddleware, async (req, res) => {
   res.status(204).end();
 });
 
-app.post("/api/holdings/import", authMiddleware, async (req, res) => {
+app.post("/api/holdings/import", requireDatabase, authMiddleware, async (req, res) => {
   const incoming = Array.isArray(req.body) ? req.body : [];
 
   try {
@@ -1517,8 +1741,17 @@ app.use((error, _req, res, _next) => {
   res.status(500).json({ error: error.message || "Internal server error" });
 });
 
-ensureSchema()
-  .then(() => {
+Promise.resolve()
+  .then(async () => {
+    try {
+      await ensureSchema();
+      databaseReady = true;
+      console.log("Database schema ready.");
+    } catch (error) {
+      databaseReady = false;
+      console.warn(`Database unavailable, starting content site only: ${error.message}`);
+    }
+
     app.listen(PORT, HOST, () => {
       const lanAddresses = getLanAddresses();
       console.log(`Server running at http://${HOST === "0.0.0.0" ? "127.0.0.1" : HOST}:${PORT}`);

@@ -1,0 +1,57 @@
+{
+  "pages": {
+    "portfolio": {
+      "template": "portfolio",
+      "pageKey": "portfolio",
+      "title": "持仓工具",
+      "breadcrumb": [
+        { "label": "首页", "href": "/" },
+        { "label": "持仓工具" }
+      ],
+      "hero": {
+        "eyebrow": "Portfolio Command",
+        "title": "把两个投资场景的结果统一汇总到持仓工具里",
+        "description": "持仓工具页是整个站点的终点页。股票投资和加密货币投资两个场景，最终都应该在这里沉淀成统一的资产视图，让用户一眼看到自己持有什么、分布在哪、哪里需要处理。",
+        "tag": "Dashboard goals",
+        "panelTitle": "统一记账、统一看板、统一提醒",
+        "panelBody": "这里应该是用户日常回访频率最高的页面，所以视觉上更偏产品化、更像控制台。",
+        "badges": ["股票", "现金", "Crypto", "链上资产"]
+      },
+      "sections": [
+        {
+          "kind": "metrics",
+          "items": [
+            { "label": "总资产净值", "value": "$1.28M", "note": "跨股票、现金、交易所与链上钱包统一换算" },
+            { "label": "本月净流入", "value": "$86.4K", "note": "包含股票入金与 Crypto 入金记录" },
+            { "label": "风险提醒", "value": "3 项", "note": "两项超配，一项链上地址待核验" },
+            { "label": "活跃平台", "value": "8", "note": "券商、交易所、钱包统一管理" }
+          ]
+        },
+        {
+          "kind": "cards",
+          "eyebrow": "What belongs here",
+          "title": "持仓页应该承担这些工作",
+          "copy": "相比前面的路径页，这里要更强调数据聚合、状态监控与动作入口。",
+          "items": [
+            { "tag": "Overview", "title": "总资产总览", "body": "总净值、总成本、总盈亏、币种分布、平台分布和资产分布。", "accent": "accent-lime" },
+            { "tag": "Tracking", "title": "出入金记录", "body": "把股票和 Crypto 两个场景中的关键资金流与操作记录串起来。", "accent": "accent-teal" },
+            { "tag": "Risk", "title": "风险与异常", "body": "仓位超配、账户长期闲置、地址未确认、入金未到账都在这里提醒。", "accent": "accent-ink" }
+          ]
+        },
+        {
+          "kind": "compare",
+          "items": [
+            {
+              "title": "建议的页面区块",
+              "list": ["总资产摘要", "资产分类列表", "平台分布图", "资金流时间线"]
+            },
+            {
+              "title": "从两个场景页回流的数据",
+              "list": ["券商入金记录", "交易所与钱包地址", "链上持仓与协议仓位", "股票组合与配置记录"]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

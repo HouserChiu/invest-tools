@@ -1,0 +1,175 @@
+{
+  "sidebars": {
+    "sim": {
+      "label": "电话卡目录",
+      "items": [
+        {
+          "label": "香港",
+          "href": "/sim/hk",
+          "children": [
+            { "kicker": "SIM 01", "label": "游惠宝", "target": "sim-hk-youhuibao" }
+          ]
+        },
+        {
+          "label": "美国",
+          "href": "/sim/us",
+          "children": [
+            { "kicker": "SIM 01", "label": "Tello", "target": "sim-us-tello" }
+          ]
+        }
+      ]
+    }
+  },
+  "pages": {
+    "sim": {
+      "template": "doc",
+      "pageKey": "sim",
+      "sidebar": "sim",
+      "title": "电话卡",
+      "breadcrumb": [
+        { "label": "首页", "href": "/" },
+        { "label": "电话卡" }
+      ],
+      "hero": {
+        "eyebrow": "SIM Cards",
+        "title": "电话卡单独做成一个支撑栏目",
+        "description": "电话卡会直接影响开户、收码、支付和日常使用，单独整理更清晰。",
+        "tag": "Support Layer",
+        "panelTitle": "香港卡和美卡承担不同角色",
+        "panelBody": "香港卡更偏出海基础能力，美卡更偏收码、验证与美区服务协同。",
+        "badges": ["香港", "美卡", "收码", "支付"],
+        "actions": [
+          { "label": "看香港电话卡", "href": "/sim/hk" },
+          { "label": "看美卡", "href": "/sim/us", "style": "ghost" }
+        ]
+      },
+      "sections": [
+        {
+          "kind": "cards",
+          "eyebrow": "Categories",
+          "title": "电话卡栏目分成两块",
+          "items": [
+            {
+              "tag": "HK",
+              "title": "香港",
+              "body": "收录香港电话卡方案，先从游惠宝开始。",
+              "href": "/sim/hk",
+              "accent": "accent-sand"
+            },
+            {
+              "tag": "US",
+              "title": "美国",
+              "body": "收录美国电话卡方案，先从 Tello 开始。",
+              "href": "/sim/us",
+              "accent": "accent-teal"
+            }
+          ]
+        }
+      ]
+    },
+    "sim-hk": {
+      "template": "doc",
+      "pageKey": "sim",
+      "sidebar": "sim",
+      "title": "电话卡 - 香港电话卡",
+      "breadcrumb": [
+        { "label": "首页", "href": "/" },
+        { "label": "电话卡", "href": "/sim" },
+        { "label": "香港电话卡" }
+      ],
+      "hero": {
+        "eyebrow": "HK SIM",
+        "title": "香港电话卡按方案整理",
+        "description": "收录游惠宝，以及套餐、资费和与开户场景的关系。",
+        "tag": "Current Focus",
+        "panelTitle": "从具体方案开始",
+        "panelBody": "可继续扩展更多香港电话卡。",
+        "badges": ["香港", "游惠宝", "收码", "出海"]
+      },
+      "sections": [
+        {
+          "kind": "tree-tabs",
+          "anchor": "sim-hk-tabs",
+          "eyebrow": "Plans",
+          "title": "香港电话卡按方案展开",
+          "copy": "左侧选香港，再切换游惠宝，右侧直接看 md 内容。",
+          "primary": {
+            "kicker": "Region",
+            "label": "香港",
+            "note": "点击后展开电话卡方案"
+          },
+          "groups": [
+            {
+              "id": "sim-hk-group",
+              "kicker": "Plans",
+              "label": "电话卡方案",
+              "description": "收录游惠宝，并可扩展其他香港电话卡。",
+              "badges": ["游惠宝"],
+              "banks": [
+                {
+                  "id": "sim-hk-youhuibao",
+                  "tag": "SIM 01",
+                  "name": "游惠宝",
+                  "description": "收录开通、用途、保号和与开户场景的关系。",
+                  "markdownPath": "content/sim/hk/youhuibao.md"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "sim-us": {
+      "template": "doc",
+      "pageKey": "sim",
+      "sidebar": "sim",
+      "title": "电话卡 - 美卡",
+      "breadcrumb": [
+        { "label": "首页", "href": "/" },
+        { "label": "电话卡", "href": "/sim" },
+        { "label": "美卡" }
+      ],
+      "hero": {
+        "eyebrow": "US SIM",
+        "title": "美国电话卡按方案整理",
+        "description": "收录 Tello，以及用途、WiFi Calling 和长期保号经验。",
+        "tag": "Current Focus",
+        "panelTitle": "从常见方案开始",
+        "panelBody": "可继续扩展更多美国电话卡和使用场景。",
+        "badges": ["美卡", "Tello", "WiFi Calling", "验证"]
+      },
+      "sections": [
+        {
+          "kind": "tree-tabs",
+          "anchor": "sim-us-tabs",
+          "eyebrow": "Plans",
+          "title": "美国电话卡按方案展开",
+          "copy": "左侧选美国，再切换 Tello，右侧直接看 md 内容。",
+          "primary": {
+            "kicker": "Region",
+            "label": "美国",
+            "note": "点击后展开电话卡方案"
+          },
+          "groups": [
+            {
+              "id": "sim-us-group",
+              "kicker": "Plans",
+              "label": "电话卡方案",
+              "description": "收录 Tello，并可扩展更多美国电话卡。",
+              "badges": ["Tello"],
+              "banks": [
+                {
+                  "id": "sim-us-tello",
+                  "tag": "SIM 01",
+                  "name": "Tello",
+                  "description": "收录开通方式、月费、eSIM、WiFi Calling 和长期保号经验。",
+                  "markdownPath": "content/sim/us/tello.md"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

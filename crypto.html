@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Crypto 操作台</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@500;700&family=Outfit:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body data-page="crypto">
+    <div class="aurora aurora-left"></div>
+    <div class="aurora aurora-right"></div>
+
+    <div class="site-shell">
+      <header class="topbar">
+        <a class="brand" href="/index.html">
+          <span class="brand-mark">GW</span>
+          <span>
+            <strong>Global Wealth Routes</strong>
+            <small>全球投资与资金路径导航</small>
+          </span>
+        </a>
+
+        <nav class="topnav">
+          <a href="/index.html">首页</a>
+          <a href="/stocks.html">股票投资</a>
+          <a href="/crypto.html">加密货币投资</a>
+          <a href="/portfolio.html">持仓工具</a>
+        </nav>
+      </header>
+
+      <main class="doc-page">
+        <nav class="breadcrumb" aria-label="Breadcrumb">
+          <a href="/index.html">首页</a>
+          <span>/</span>
+          <span class="is-current">加密货币投资</span>
+        </nav>
+
+        <div class="doc-layout">
+          <aside class="side-nav">
+            <span class="side-nav-label">加密货币目录</span>
+            <a class="side-link is-current" href="/crypto.html">场景概览</a>
+            <a class="side-link" href="/crypto-fiat.html">法币入金与稳定币</a>
+            <a class="side-link" href="/crypto-wallets.html">交易所与钱包分工</a>
+            <a class="side-link" href="/crypto-onchain.html">链上流转与协议交互</a>
+            <a class="side-link" href="/portfolio.html">持仓工具</a>
+          </aside>
+
+          <div class="doc-content">
+        <section class="page-hero">
+          <div>
+            <p class="eyebrow">Crypto Operations</p>
+            <h1 class="page-title">加密货币投资场景的细节在这里展开</h1>
+            <p class="hero-text">
+              首页已经帮用户确认了自己要走“加密货币投资”这条路径，这个页面就负责把法币入金、交易所、钱包和链上操作拆清楚，并为后续更细的专题页留出入口。
+            </p>
+          </div>
+
+          <div class="page-hero-card">
+            <span class="panel-tag">Layered structure</span>
+            <h2>先分层，再讲操作</h2>
+            <p>把 Crypto 页面拆成法币层、交易层、托管层、链上层，用户会更容易理解整个体系。</p>
+            <div class="badge-row">
+              <span>CEX</span>
+              <span>USDT / USDC</span>
+              <span>钱包</span>
+              <span>多链</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="section">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">System Layers</p>
+              <h2>先分层，再展开细节</h2>
+            </div>
+            <p class="section-copy">这块可以在后续升级成真正的图谱组件，现在先用原型卡片把层次搭清楚。</p>
+          </div>
+
+          <div class="module-grid">
+            <article class="module-card accent-rose">
+              <span class="module-tag">Layer 1</span>
+              <h3>法币入金层</h3>
+              <p>先解释资金从哪里进来，以及如何进入交易所或稳定币体系。</p>
+            </article>
+            <article class="module-card accent-ink">
+              <span class="module-tag">Layer 2</span>
+              <h3>交易执行层</h3>
+              <p>完成稳定币转换、现货配置和平台内部调仓。</p>
+            </article>
+            <article class="module-card accent-teal">
+              <span class="module-tag">Layer 3</span>
+              <h3>钱包托管层</h3>
+              <p>把资产从平台提到热钱包或冷钱包，进入自主控制阶段。</p>
+            </article>
+            <article class="module-card accent-gold">
+              <span class="module-tag">Layer 4</span>
+              <h3>链上协议层</h3>
+              <p>参与 staking、DEX 或其他协议时，需要把入口和退出路径讲清楚。</p>
+            </article>
+          </div>
+        </section>
+
+        <section class="section">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">User Actions</p>
+              <h2>加密货币投资关键流程</h2>
+            </div>
+            <p class="section-copy">Crypto 页最好像操作台，每一步都带网络检查与风险提示。</p>
+          </div>
+
+          <div class="process-grid">
+            <article class="process-card">
+              <span class="process-step">01</span>
+              <h3>入金到交易所</h3>
+              <p>先确定法币进入哪一个平台，再决定是否转换成稳定币。</p>
+            </article>
+            <article class="process-card">
+              <span class="process-step">02</span>
+              <h3>建立资产头寸</h3>
+              <p>解释 BTC、ETH、稳定币和其他资产在组合中的不同角色。</p>
+            </article>
+            <article class="process-card">
+              <span class="process-step">03</span>
+              <h3>提币到钱包</h3>
+              <p>强调链名、地址、Memo、白名单和小额测试的重要性。</p>
+            </article>
+            <article class="process-card">
+              <span class="process-step">04</span>
+              <h3>进入链上操作</h3>
+              <p>把桥接、Gas、目标协议校验和退出路径一并展示。</p>
+            </article>
+          </div>
+        </section>
+
+        <section class="section">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Detail Topics</p>
+              <h2>这个页面再继续拆成几个细节主题</h2>
+            </div>
+            <p class="section-copy">先把主场景说明白，再把复杂主题分拆到更细的专题页，阅读体验会更清楚。</p>
+          </div>
+
+          <div class="module-grid">
+            <a class="module-card accent-rose module-link" href="/crypto-fiat.html">
+              <span class="module-tag">Detail 01</span>
+              <h3>法币入金与稳定币</h3>
+              <p>继续展开入金路径、稳定币选择和平台承接逻辑。</p>
+            </a>
+            <a class="module-card accent-ink module-link" href="/crypto-wallets.html">
+              <span class="module-tag">Detail 02</span>
+              <h3>交易所与钱包分工</h3>
+              <p>解释哪些资产留在平台，哪些资产适合提到钱包。</p>
+            </a>
+            <a class="module-card accent-gold module-link" href="/crypto-onchain.html">
+              <span class="module-tag">Detail 03</span>
+              <h3>链上流转与协议交互</h3>
+              <p>继续拆解跨链、桥接、Gas 管理和风险控制。</p>
+            </a>
+          </div>
+        </section>
+
+        <section class="section">
+          <div class="compare-grid">
+            <article class="compare-card">
+              <h3>这个页面要解决的问题</h3>
+              <ul>
+                <li>资金如何进入 Crypto 体系</li>
+                <li>资产应该放在交易所还是钱包</li>
+                <li>链上流转如何避免出错</li>
+                <li>如何最终回到持仓工具页</li>
+              </ul>
+            </article>
+            <article class="compare-card">
+              <h3>这个页面应导向</h3>
+              <ul>
+                <li>更细的 Crypto 专题页</li>
+                <li>网络检查器</li>
+                <li>地址簿</li>
+                <li>持仓工具页</li>
+              </ul>
+            </article>
+          </div>
+        </section>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

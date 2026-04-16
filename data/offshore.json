@@ -1,0 +1,106 @@
+{
+  "sidebars": {
+    "offshore": {
+      "label": "出海目录",
+      "items": [
+        { "label": "栏目概览", "href": "/offshore" },
+        { "label": "股票", "href": "/offshore/stocks" },
+        { "label": "加密货币", "href": "/offshore/crypto" },
+        { "label": "电话卡", "href": "/sim" },
+        { "label": "持仓工具", "href": "/portfolio" }
+      ]
+    }
+  },
+  "pages": {
+    "offshore": {
+      "template": "doc",
+      "pageKey": "offshore",
+      "sidebar": "offshore",
+      "title": "出海",
+      "breadcrumb": [
+        { "label": "首页", "href": "/" },
+        { "label": "出海" }
+      ],
+      "hero": {
+        "eyebrow": "Offshore",
+        "title": "出海内容先分成股票和加密货币两条主线",
+        "description": "按照你的文档，出海栏目不再按抽象流程展开，而是围绕真实主题组织：股票线覆盖银行卡、券商、入出金和消费；加密货币线覆盖交易所、入出金、链上流转和美股链上投资。",
+        "tag": "Two Tracks",
+        "panelTitle": "先按主题分栏，再在子页里展开细节",
+        "panelBody": "这样更接近你想要的网站结构，也更方便后续持续补充具体经验和条件变化。",
+        "badges": ["股票", "加密货币", "账户", "资金流"],
+        "actions": [
+          { "label": "进入股票", "href": "/offshore/stocks" },
+          { "label": "进入加密货币", "href": "/offshore/crypto", "style": "ghost" }
+        ]
+      },
+      "outline": [
+        { "label": "栏目分工", "href": "#offshore-tracks", "note": "先看两条主线分别讲什么" },
+        { "label": "股票主题", "href": "#offshore-stocks", "note": "银行卡、券商、入出金、消费" },
+        { "label": "Crypto 主题", "href": "#offshore-crypto", "note": "交易所、链上、U 卡、美股链上投资" }
+      ],
+      "sections": [
+        {
+          "kind": "cards",
+          "anchor": "offshore-tracks",
+          "eyebrow": "Tracks",
+          "title": "出海栏目下面的两条主线",
+          "items": [
+            {
+              "tag": "Track 01",
+              "title": "股票",
+              "body": "从港卡、美卡、券商开户开始，延伸到银行卡入金、券商入金、出金回国和日常消费绑定。",
+              "note": "更偏账户体系和传统金融操作。",
+              "href": "/offshore/stocks",
+              "accent": "accent-teal"
+            },
+            {
+              "tag": "Track 02",
+              "title": "加密货币",
+              "body": "从交易所开户进入，再展开 C2C、链上转入转出、U 卡消费、链上流转和美股链上投资。",
+              "note": "更偏平台、链路和资产跨链流转。",
+              "href": "/offshore/crypto",
+              "accent": "accent-rose"
+            }
+          ]
+        },
+        {
+          "kind": "compare",
+          "anchor": "offshore-stocks",
+          "items": [
+            {
+              "title": "股票线会讲什么",
+              "list": ["港卡 / 美卡开户", "券商开户条件", "入金到银行卡", "入金到券商", "出金回国", "银行卡消费绑定"]
+            },
+            {
+              "title": "加密货币线会讲什么",
+              "list": ["交易所开户", "C2C 与链上入金", "C2C 与交易所出金", "U 卡消费", "链上流转", "美股链上投资"]
+            }
+          ]
+        },
+        {
+          "kind": "next-links",
+          "anchor": "offshore-crypto",
+          "eyebrow": "Go Next",
+          "title": "从这里进入具体子栏目",
+          "items": [
+            {
+              "tag": "Stocks",
+              "title": "股票",
+              "body": "进入股票子栏目后，再按银行卡、券商、入出金和消费继续展开。",
+              "href": "/offshore/stocks",
+              "accent": "accent-teal"
+            },
+            {
+              "tag": "Crypto",
+              "title": "加密货币",
+              "body": "进入 Crypto 子栏目后，再按开户、入出金、链上流转和美股链上投资展开。",
+              "href": "/offshore/crypto",
+              "accent": "accent-rose"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
