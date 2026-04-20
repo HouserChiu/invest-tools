@@ -139,10 +139,10 @@
       "hero": {
         "eyebrow": "Offshore Stocks",
         "title": "股票线围绕账户、资金进出和消费来组织",
-        "description": "按照你的 md，这一块不再讲抽象配置逻辑，而是先把港卡、美卡、券商、入金、出金回国和消费绑定这些真正会用到的主题分开。",
+        "description": "股票部分不讲空泛概念，直接按银行卡、券商、入金、出金和消费这些实际动作拆开整理。",
         "tag": "Stock Topics",
-        "panelTitle": "先把基础设施讲明白",
-        "panelBody": "等账户体系和资金路径清楚之后，这条股票信息线就能稳定承接后续的开户、入金、出金和消费经验。",
+        "panelTitle": "先把基础设施搭好",
+        "panelBody": "先把账户体系、资金路径和消费闭环梳理清楚，再去做长期持仓、券商切换和跨境资产配置会更稳。",
         "badges": ["港卡", "美卡", "券商", "入出金"],
         "actions": [
           { "label": "看银行卡开户", "href": "/stocks/bank-cards" },
@@ -153,14 +153,14 @@
         {
           "kind": "next-links",
           "eyebrow": "Topics",
-          "title": "股票栏目下的主题页",
+          "title": "股票栏目主题",
           "items": [
-            { "tag": "01", "title": "银行卡开户", "body": "主要看港卡，也补美卡、ITIN、华美这些与你文档相关的点。", "href": "/stocks/bank-cards", "accent": "accent-teal" },
-            { "tag": "02", "title": "券商开户", "body": "整理各类券商开户条件，以及还可以开的券商，比如辉立。", "href": "/stocks/brokers", "accent": "accent-sand" },
-            { "tag": "03", "title": "入金到银行卡", "body": "先收跨境支付通、SWIFT 等路径。", "href": "/stocks/bank-funding", "accent": "accent-lime" },
-            { "tag": "04", "title": "入金到券商", "body": "整理 FPS、EDDA、电汇等方式及各自适用场景。", "href": "/stocks/broker-funding", "accent": "accent-rose" },
-            { "tag": "05", "title": "出金回国", "body": "重点先围绕收入证明等现实问题展开。", "href": "/stocks/withdrawal", "accent": "accent-gold" },
-            { "tag": "06", "title": "消费", "body": "整理各种银行卡绑定消费的经验。", "href": "/stocks/spending", "accent": "accent-ink" }
+            { "tag": "01", "title": "银行卡开户", "body": "覆盖香港卡、美国卡、新加坡卡等开户路径与材料要求。", "href": "/stocks/bank-cards", "accent": "accent-teal" },
+            { "tag": "02", "title": "券商开户", "body": "整理香港、美国、新加坡券商的开户门槛、材料和适用人群。", "href": "/stocks/brokers", "accent": "accent-sand" },
+            { "tag": "03", "title": "入金到银行卡", "body": "整理 SWIFT 与跨境支付通等跨境入金路径。", "href": "/stocks/bank-funding", "accent": "accent-lime" },
+            { "tag": "04", "title": "入金到券商", "body": "覆盖 FPS、EDDA、电汇等券商入金方法与使用场景。", "href": "/stocks/broker-funding", "accent": "accent-rose" },
+            { "tag": "05", "title": "出金回国", "body": "聚焦收入证明、银行问询与回款链路这些现实问题。", "href": "/stocks/withdrawal", "accent": "accent-gold" },
+            { "tag": "06", "title": "消费", "body": "整理银行卡绑定消费、订阅扣费和日常支付经验。", "href": "/stocks/spending", "accent": "accent-ink" }
           ]
         }
       ]

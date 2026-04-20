@@ -32,11 +32,11 @@
       ],
       "hero": {
         "eyebrow": "SIM Cards",
-        "title": "电话卡单独做成一个支撑栏目",
-        "description": "电话卡会直接影响开户、收码、支付和日常使用，单独整理更清晰。",
+        "title": "电话卡部分覆盖香港卡和美国卡方案",
+        "description": "电话卡不是配角。它直接影响开户验证码、支付验证、账号维护和跨境日常使用，所以需要单独整理成独立栏目。",
         "tag": "Support Layer",
-        "panelTitle": "香港卡和美卡承担不同角色",
-        "panelBody": "香港卡更偏出海基础能力，美卡更偏收码、验证与美区服务协同。",
+        "panelTitle": "电话卡基础设施同样重要",
+        "panelBody": "香港卡更偏向香港银行卡和香港券商场景，美国卡更偏向验证、WiFi Calling 和美区服务访问。",
         "badges": ["香港", "美卡", "收码", "支付"],
         "actions": [
           { "label": "看香港电话卡", "href": "/sim/hk" },
@@ -47,19 +47,19 @@
         {
           "kind": "cards",
           "eyebrow": "Categories",
-          "title": "电话卡栏目分成两块",
+          "title": "电话卡地区分类",
           "items": [
             {
               "tag": "HK",
               "title": "香港",
-              "body": "收录香港电话卡方案，先从游惠宝开始。",
+              "body": "收录香港号码、收码、保号与开户协同场景，当前从游惠宝开始。",
               "href": "/sim/hk",
               "accent": "accent-sand"
             },
             {
               "tag": "US",
               "title": "美国",
-              "body": "收录美国电话卡方案，先从 Tello 开始。",
+              "body": "收录美国号码、eSIM、WiFi Calling 与长期保号方案，当前从 Tello 开始。",
               "href": "/sim/us",
               "accent": "accent-teal"
             }

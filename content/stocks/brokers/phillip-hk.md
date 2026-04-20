@@ -269,7 +269,15 @@
 - **韩国股票可以做，但通常要额外申请相关交易权限**
 - **开户后通常还要继续开通具体市场或产品权限**
 
-## 十、官方来源
+## 十、邀请码
+
+如需使用邀请码，可填写：
+
+- `HKTTIyNDY5OA==`
+
+如当期有邀请活动或开户奖赏，以辉立 HK 实际开户页面显示为准。
+
+## 十一、官方来源
 
 - 辉立 HK 开户总页面  
   [https://www.poems.com.hk/en-us/customer-service/open-an-account/](https://www.poems.com.hk/en-us/customer-service/open-an-account/)

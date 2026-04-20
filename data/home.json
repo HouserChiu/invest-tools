@@ -6,8 +6,8 @@
       "title": "Global Wealth Routes",
       "hero": {
         "eyebrow": "Offshore handbook",
-        "title": "整个网站都围绕“出海”展开",
-        "description": "这里的“出海”是总主题，不单独做成一个栏目页。真正的网站一级内容就是你文档里的二级标题：股票、加密货币、电话卡、持仓工具。",
+        "title": "一套面向中文用户的跨境资产与账户手册",
+        "description": "网站内容覆盖股票账户、加密货币路径、电话卡方案与持仓工具，重点解决跨境开户、资金流转、支付验证和资产管理这些真实问题。",
         "actions": [
           { "label": "进入股票", "href": "/stocks", "variant": "primary" },
           { "label": "进入加密货币", "href": "/crypto", "variant": "ghost" },
@@ -15,7 +15,7 @@
           { "label": "打开持仓工具", "href": "/portfolio", "variant": "ghost" }
         ],
         "summaryTag": "Site Structure",
-        "summaryTitle": "四个一级栏目",
+        "summaryTitle": "四个核心栏目",
         "summaryItems": [
           { "index": "01", "label": "股票" },
           { "index": "02", "label": "加密货币" },
@@ -27,7 +27,7 @@
         {
           "tag": "Section",
           "title": "股票",
-          "body": "围绕银行卡开户、券商开户、入金、出金回国和消费这些主题展开。",
+          "body": "聚焦银行卡开户、券商开户、入金、出金和消费路径。",
           "href": "/stocks",
           "accent": "accent-teal",
           "cta": "进入栏目"
@@ -35,7 +35,7 @@
         {
           "tag": "Section",
           "title": "加密货币",
-          "body": "围绕开户、入金、出金、消费、链上流转和美股链上投资展开。",
+          "body": "覆盖交易所开户、法币入金、出金、加密货币卡、链上转账和链上美股。",
           "href": "/crypto",
           "accent": "accent-rose",
           "cta": "进入栏目"
@@ -43,7 +43,7 @@
         {
           "tag": "Section",
           "title": "电话卡",
-          "body": "整理香港电话卡和美卡的用途、方案与使用场景，服务后续开户、支付和验证需求。",
+          "body": "整理香港卡和美国卡方案，服务收码、验证、支付和跨境账号长期维护。",
           "href": "/sim",
           "accent": "accent-sand",
           "cta": "进入栏目"
@@ -51,7 +51,7 @@
         {
           "tag": "Tool",
           "title": "持仓工具",
-          "body": "直接复用现有持仓工具成果，统一管理股票和加密货币资产。",
+          "body": "统一管理股票与加密货币持仓，兼顾中文用户和国际用户的使用场景。",
           "href": "/portfolio",
           "accent": "accent-lime",
           "cta": "打开工具"

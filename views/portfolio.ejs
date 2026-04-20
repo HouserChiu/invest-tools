@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@500;700&family=Outfit:wght@300;400;500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Manrope:wght@500;600;700;800&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="/styles.css" />
@@ -36,23 +36,20 @@
         <div class="page-shell portfolio-shell">
           <header class="hero">
             <div class="hero-copy">
-              <p class="eyebrow">Portfolio Command Center</p>
-              <h1>把股票和加密资产放到同一个投资驾驶舱里</h1>
-              <p class="hero-text">
-                覆盖 IBKR、Futu、盈立、老虎、辉立、OKX、卓锐。你只需要维护一份持仓数据，就能统一看总资产、总盈亏、平台分布和仓位结构。
-              </p>
+              <p class="eyebrow"><%= page.hero.eyebrow %></p>
+              <h1><%= page.hero.title %></h1>
+              <p class="hero-text"><%= page.hero.description %></p>
+              <div class="badge-row">
+                <% (page.hero.badges || []).forEach((badge) => { %>
+                  <span><%= badge %></span>
+                <% }) %>
+              </div>
             </div>
 
             <section class="quick-actions card">
               <div class="card-heading">
                 <h2>数据工具</h2>
                 <p id="user-badge">请先登录后查看个人投资总览</p>
-              </div>
-              <p id="lan-hint" class="sync-status">正在检测局域网访问地址...</p>
-              <div id="invite-panel" class="invite-panel is-hidden">
-                <span class="metric-label">我的邀请码</span>
-                <strong id="my-invite-code" class="metric-value">-</strong>
-                <span class="metric-note">把这个邀请码发给朋友，对方注册成功后也会自动拥有自己的邀请码。</span>
               </div>
               <div class="action-row user-actions">
                 <button id="logout-btn" class="ghost-button is-hidden">退出登录</button>
@@ -67,7 +64,7 @@
                 <label class="import-label ghost-button" for="import-file">导入 JSON</label>
                 <input id="import-file" type="file" accept="application/json" hidden />
               </div>
-              <p id="sync-status" class="sync-status">页面刷新时会尝试同步股票、期权、加密货币、贵金属和外汇的 T-1 收盘价。</p>
+              <p id="sync-status" class="sync-status">页面刷新时会优先从 MySQL 缓存同步股票、期权、加密货币和贵金属 / 外汇的 T-1 价格，未命中时再请求本地 Yahoo 代理服务。</p>
             </section>
           </header>
 
@@ -88,11 +85,7 @@
                   密码
                   <input id="auth-password" type="password" autocomplete="current-password" />
                 </label>
-                <label id="invite-code-field">
-                  邀请码
-                  <input id="auth-invite-code" type="text" autocomplete="off" />
-                </label>
-                <p class="form-hint">已存在用户可直接登录，不填邀请码也可以；新用户首次进入时需要填写邀请码，系统会自动注册并登录。首个注册用户会自动接管当前数据库里尚未归属的历史持仓。</p>
+                <p class="form-hint">输入用户名和密码后，已存在用户会直接登录；新用户会自动注册并登录。首个注册用户会自动接管当前数据库里尚未归属的历史持仓。</p>
                 <button id="auth-submit-btn" type="submit" class="primary-button">继续</button>
               </form>
             </div>
@@ -213,6 +206,7 @@
                     <label id="current-price-field">
                       <span id="current-price-label">现价</span>
                       <input id="current-price" type="number" min="0" step="any" placeholder="0" required />
+                      <button id="lookup-price-btn" type="button" class="ghost-button inline-lookup-button">获取 T-1 价格</button>
                     </label>
 
                     <label>
@@ -266,6 +260,8 @@
                   <p class="form-hint">
                     当前按美元做总账汇总。`汇率到基准币` 请填写到美元的汇率，比如美股和 USDT 资产通常填 `1`，港币资产可填 `HKD/USD`，韩股可填 `KRW/USD`；期权按每张合约的报价和乘数计算，现金只需要填金额和汇率。
                   </p>
+                  <p id="price-lookup-status" class="sync-status">填好代码、市场和币种后，系统会先查数据库缓存，未命中时再请求 Yahoo Finance 代理服务，包括 XAUUSD / XAGUSD 这类贵金属映射。</p>
+                  <p id="price-lookup-source" class="sync-status is-hidden"></p>
 
                   <div class="form-actions">
                     <button type="submit" class="primary-button">保存持仓</button>
@@ -338,6 +334,7 @@
                           <select id="sort-cost">
                             <option value="">默认</option>
                             <option value="costDesc">从高到低</option>
+                            <option value="costAsc">从低到高</option>
                           </select>
                         </div>
                       </th>
@@ -346,6 +343,7 @@
                           <span>市值</span>
                           <select id="sort-market-value">
                             <option value="marketValueDesc">从高到低</option>
+                            <option value="marketValueAsc">从低到高</option>
                           </select>
                         </div>
                       </th>
@@ -355,6 +353,7 @@
                           <select id="sort-pnl">
                             <option value="">默认</option>
                             <option value="pnlDesc">从高到低</option>
+                            <option value="pnlAsc">从低到高</option>
                           </select>
                         </div>
                       </th>
@@ -364,6 +363,7 @@
                           <select id="sort-allocation">
                             <option value="">默认</option>
                             <option value="allocationDesc">从高到低</option>
+                            <option value="allocationAsc">从低到高</option>
                           </select>
                         </div>
                       </th>

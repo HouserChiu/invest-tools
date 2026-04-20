@@ -135,7 +135,15 @@
 - **开户后**：可继续配合 `inMotion 动感银行` 使用
 - **注意**：官网明确写明没有委托开户中介，别走第三方代办
 
-## 九、官方来源
+## 九、邀请码
+
+如需使用邀请码，可填写：
+
+- `1Q4X9L8`
+
+如当期有邀请活动或开户奖赏，以银行页面和实际提交页面显示为准。
+
+## 十、官方来源
 
 - 中信银行（国际）跨境服务页面  
   [https://www.cncbinternational.com/cross-border-banking/sc/index.jsp](https://www.cncbinternational.com/cross-border-banking/sc/index.jsp)

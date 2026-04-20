@@ -134,7 +134,15 @@ BOCHK、HSBC HK 或中信银行国际通常更合适。
 - **不能只靠港澳通行证开户**
 - **适合轻量化线上账户，不太适合作为复杂跨境需求的唯一主账户**
 
-## 九、官方来源
+## 九、邀请码
+
+如需使用邀请码，可填写：
+
+- `D848S4`
+
+如当期有邀请活动或开户奖赏，以 ZA Bank App 和实际提交页面显示为准。
+
+## 十、官方来源
 
 - ZA Bank 个人开户页面  
   [https://bank.za.group/en/account-open](https://bank.za.group/en/account-open)

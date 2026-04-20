@@ -194,7 +194,15 @@
 - **“接收加密货币，再处理法币”是卓锐最值得关注的使用场景之一**
 - **但官网当前写明，虚拟资产交易服务面向专业投资者，具体开通范围要再向客服确认**
 
-## 十、官方来源
+## 十、邀请链接
+
+如需使用邀请链接，可通过以下地址进入：
+
+- [https://cam.zr.com/zircon_activity/mgm/login?channelId=2&inviteUserId=328455d6c6f04ed1870198e49ca8b6b0](https://cam.zr.com/zircon_activity/mgm/login?channelId=2&inviteUserId=328455d6c6f04ed1870198e49ca8b6b0)
+
+如当期有邀请活动或开户奖赏，以卓锐证券实际开户链接和提交页面显示为准。
+
+## 十一、官方来源
 
 - 卓锐证券官网首页  
   [https://www.zr.hk/](https://www.zr.hk/)

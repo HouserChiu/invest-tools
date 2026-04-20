@@ -189,7 +189,15 @@ uSMART-SG 公开页和帮助中心页写明：
 - **入金方式数字化程度高，尤其是新币支持 `eGIRO / PayNow / FAST / Wise / BigPay / 电汇`**
 - **App 内还可开通 CFD 账户，直接交易黄金 / 白银**
 
-## 八、官方来源
+## 八、邀请链接
+
+如需使用邀请链接，可通过以下地址进入：
+
+- [https://m.usmartsg66.com/promo/overseas/bonus-dec.html?ICode=ukjn&langType=1&Id=](https://m.usmartsg66.com/promo/overseas/bonus-dec.html?ICode=ukjn&langType=1&Id=)
+
+如当期有邀请活动、开户奖赏或入金奖励，以 uSMART-SG 实际活动页面显示为准。
+
+## 九、官方来源
 
 - uSMART SG 开户页  
   [https://www.usmart.sg/open-account](https://www.usmart.sg/open-account)

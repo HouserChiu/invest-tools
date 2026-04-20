@@ -177,12 +177,9 @@ const authSubmitBtn = document.querySelector("#auth-submit-btn");
 const logoutBtn = document.querySelector("#logout-btn");
 const userBadge = document.querySelector("#user-badge");
 const authStatus = document.querySelector("#auth-status");
-const lanHint = document.querySelector("#lan-hint");
-const inviteCodeField = document.querySelector("#invite-code-field");
-const invitePanel = document.querySelector("#invite-panel");
-const myInviteCode = document.querySelector("#my-invite-code");
 const cancelEditBtn = document.querySelector("#cancel-edit-btn");
 const refreshPricesBtn = document.querySelector("#refresh-prices-btn");
+const lookupPriceBtn = document.querySelector("#lookup-price-btn");
 const loadSampleBtn = document.querySelector("#load-sample-btn");
 const resetBtn = document.querySelector("#reset-btn");
 const exportBtn = document.querySelector("#export-btn");
@@ -193,6 +190,8 @@ const platformAllocation = document.querySelector("#platform-allocation");
 const allocationGap = document.querySelector("#allocation-gap");
 const allocationTemplate = document.querySelector("#allocation-item-template");
 const syncStatus = document.querySelector("#sync-status");
+const priceLookupStatus = document.querySelector("#price-lookup-status");
+const priceLookupSource = document.querySelector("#price-lookup-source");
 const filterAssetType = document.querySelector("#filter-asset-type");
 const filterPlatform = document.querySelector("#filter-platform");
 const filterMarket = document.querySelector("#filter-market");
@@ -202,7 +201,6 @@ const sortPnl = document.querySelector("#sort-pnl");
 const sortAllocation = document.querySelector("#sort-allocation");
 const authUsername = document.querySelector("#auth-username");
 const authPassword = document.querySelector("#auth-password");
-const authInviteCode = document.querySelector("#auth-invite-code");
 
 const fields = {
   id: document.querySelector("#holding-id"),
@@ -245,9 +243,16 @@ const activeFilters = {
   market: "",
 };
 let activeSort = "marketValueDesc";
+let priceLookupTimer = null;
+let priceLookupRequestId = 0;
 
 function toNumber(value) {
   return Number.parseFloat(value) || 0;
+}
+
+function formatInputNumber(value) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? String(parsed) : "";
 }
 
 function formatMoney(value) {
@@ -476,8 +481,12 @@ function renderTable(summary) {
       const allocationB = summary.totalMarketValue !== 0 ? (metricsB.marketValueBase / summary.totalMarketValue) * 100 : 0;
 
       if (activeSort === "costDesc") return metricsB.costValueBase - metricsA.costValueBase;
+      if (activeSort === "costAsc") return metricsA.costValueBase - metricsB.costValueBase;
       if (activeSort === "pnlDesc") return metricsB.pnlBase - metricsA.pnlBase;
+      if (activeSort === "pnlAsc") return metricsA.pnlBase - metricsB.pnlBase;
       if (activeSort === "allocationDesc") return allocationB - allocationA;
+      if (activeSort === "allocationAsc") return allocationA - allocationB;
+      if (activeSort === "marketValueAsc") return metricsA.marketValueBase - metricsB.marketValueBase;
       return metricsB.marketValueBase - metricsA.marketValueBase;
     })
     .map((holding) => {
@@ -495,7 +504,7 @@ function renderTable(summary) {
                 ${holding.assetType === "option" ? `<span class="chip">${holding.positionSide === "short" ? "卖方" : "买方"}</span>` : ""}
                 ${holding.assetType === "option" ? `<span class="chip">${(holding.optionType || "call").toUpperCase()} ${holding.strikePrice || "-"}</span>` : ""}
                 ${holding.assetType === "option" && holding.expiryDate ? `<span class="chip">${holding.expiryDate}</span>` : ""}
-                ${holding.assetType === "option" ? getSyncBadge(holding) : ""}
+                ${getSyncBadge(holding)}
                 ${holding.notes ? `<span class="chip">${holding.notes}</span>` : ""}
               </div>
               ${holding.assetType === "option" && holding.underlying ? `<span class="muted">标的 ${holding.underlying}</span>` : ""}
@@ -543,6 +552,7 @@ function renderTable(summary) {
           <td>${allocation.toFixed(2)}%</td>
           <td>
             <div class="table-actions">
+              <button class="inline-button" data-action="refresh-price" data-id="${holding.id}">刷新行情</button>
               <button class="inline-button" data-action="edit" data-id="${holding.id}">编辑</button>
               <button class="inline-button delete" data-action="delete" data-id="${holding.id}">删除</button>
             </div>
@@ -598,6 +608,14 @@ function updateCurrencyField() {
   }
 }
 
+function escapeHtml(value) {
+  return String(value || "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
+}
+
 function resetForm() {
   form.reset();
   fields.id.value = "";
@@ -609,6 +627,7 @@ function resetForm() {
   fields.fxRate.value = "1";
   setCurrencyValue("USD");
   updateFormForAssetType();
+  setPriceLookupStatus("填好代码、市场和币种后，系统会先查数据库缓存，未命中时再请求 Yahoo Finance 代理服务，包括 XAUUSD / XAGUSD 这类贵金属映射。");
 }
 
 function updateFormForAssetType() {
@@ -695,6 +714,7 @@ function populateForm(holding) {
   fields.expiryDate.value = holding.expiryDate || "";
   fields.contractMultiplier.value = holding.contractMultiplier || 100;
   updateFormForAssetType();
+  setPriceLookupStatus("已载入这条持仓，修改代码或关键字段后可重新获取 T-1 价格。");
 }
 
 async function request(url, options = {}) {
@@ -737,16 +757,13 @@ function setAuthenticatedState(user) {
   authPanel.classList.toggle("is-hidden", authenticated);
   dashboard.classList.toggle("is-hidden", !authenticated);
   logoutBtn.classList.toggle("is-hidden", !authenticated);
-  invitePanel.classList.toggle("is-hidden", !authenticated);
 
   if (authenticated) {
     userBadge.textContent = `当前用户：${user.username}`;
-    myInviteCode.textContent = user.inviteCode || "-";
     setAuthStatus("登录成功，你现在看到的只会是自己的持仓数据。", "success");
     dashboard.scrollIntoView({ behavior: "smooth", block: "start" });
   } else {
     userBadge.textContent = "请先登录后查看个人投资总览";
-    myInviteCode.textContent = "-";
     holdings = [];
     renderDashboard();
     setSyncStatus("登录后可同步和查看属于你自己的持仓。");
@@ -761,18 +778,6 @@ async function loadSession() {
 
 async function loadPublicConfig() {
   publicConfig = await request("/api/config/public");
-  const addresses = Array.isArray(publicConfig.lanAddresses) ? publicConfig.lanAddresses : [];
-
-  if (publicConfig.host === "0.0.0.0" && addresses.length) {
-    lanHint.textContent = `局域网可访问地址：${addresses.map((address) => `http://${address}:${publicConfig.port}`).join(" ，")}`;
-    lanHint.className = "sync-status success";
-  } else {
-    lanHint.textContent = `当前仅本机访问：http://127.0.0.1:${publicConfig.port}`;
-    lanHint.className = "sync-status";
-  }
-
-  inviteCodeField.classList.toggle("is-hidden", !publicConfig.inviteRequired);
-  authInviteCode.required = false;
 }
 
 async function refreshHoldings() {
@@ -783,6 +788,134 @@ async function refreshHoldings() {
 function setSyncStatus(message, tone = "") {
   syncStatus.textContent = message;
   syncStatus.className = `sync-status ${tone}`.trim();
+}
+
+function setPriceLookupStatus(message, tone = "", source = null) {
+  if (priceLookupStatus) {
+    priceLookupStatus.textContent = message;
+    priceLookupStatus.className = `sync-status ${tone}`.trim();
+  }
+
+  if (!priceLookupSource) return;
+
+  if (source?.url) {
+    priceLookupSource.innerHTML = `参考来源：<a href="${escapeHtml(source.url)}" target="_blank" rel="noreferrer">${escapeHtml(source.title || source.url)}</a>`;
+    priceLookupSource.className = "sync-status";
+  } else {
+    priceLookupSource.textContent = "";
+    priceLookupSource.className = "sync-status is-hidden";
+  }
+}
+
+function buildHoldingDraft() {
+  return {
+    id: fields.id.value || generateUuid(),
+    assetType: fields.assetType.value,
+    positionSide: fields.assetType.value === "option" ? fields.positionSide.value : "long",
+    platform: fields.platform.value,
+    market: fields.market.value,
+    symbol: fields.symbol.value.trim().toUpperCase(),
+    name: fields.name.value.trim() || fields.symbol.value.trim().toUpperCase(),
+    currency: getCurrencyValue(),
+    quantity: toNumber(fields.quantity.value),
+    costPrice: fields.assetType.value === "cash" ? 1 : toNumber(fields.costPrice.value),
+    currentPrice: fields.assetType.value === "cash" ? 1 : toNumber(fields.currentPrice.value),
+    fxRate: toNumber(fields.fxRate.value) || 1,
+    targetAllocation: toNumber(fields.targetAllocation.value),
+    notes: fields.notes.value.trim(),
+    underlying: fields.assetType.value === "option" ? fields.underlying.value.trim().toUpperCase() : "",
+    optionType: fields.assetType.value === "option" ? fields.optionType.value : "",
+    strikePrice: fields.assetType.value === "option" ? toNumber(fields.strikePrice.value) : 0,
+    expiryDate: fields.assetType.value === "option" ? fields.expiryDate.value : "",
+    contractMultiplier: fields.assetType.value === "option" ? toNumber(fields.contractMultiplier.value) || 100 : 1,
+  };
+}
+
+function canLookupPrice(holding) {
+  if (!holding.platform || !holding.symbol || !holding.currency) {
+    return false;
+  }
+
+  if (holding.assetType === "option") {
+    return Boolean(
+      holding.underlying &&
+      holding.optionType &&
+      holding.strikePrice > 0 &&
+      holding.expiryDate
+    );
+  }
+
+  return true;
+}
+
+function applyLookupSnapshot(snapshot) {
+  if (snapshot?.currentPrice != null && fields.assetType.value !== "cash") {
+    fields.currentPrice.value = formatInputNumber(snapshot.currentPrice);
+  }
+}
+
+async function lookupT1PriceViaBridge({ silent = false } = {}) {
+  if (!currentUser) return null;
+
+  const holding = buildHoldingDraft();
+  if (!canLookupPrice(holding)) {
+    if (!silent) {
+      setPriceLookupStatus("请先补全代码、市场、币种，以及期权所需的标的、行权价和到期日。", "warning");
+    }
+    return null;
+  }
+
+  const requestId = ++priceLookupRequestId;
+  if (lookupPriceBtn) lookupPriceBtn.disabled = true;
+  if (!silent) {
+    setPriceLookupStatus("正在获取最近一个交易日收盘价...");
+  }
+
+  try {
+    const snapshot = await request("/api/prices/lookup", {
+      method: "POST",
+      body: JSON.stringify(holding),
+    });
+
+    if (requestId !== priceLookupRequestId) {
+      return snapshot;
+    }
+
+    if (!snapshot?.found || snapshot.currentPrice == null) {
+      const message = snapshot?.notes || "未能返回可靠价格。";
+      setPriceLookupStatus(message, "warning");
+      return snapshot;
+    }
+
+    applyLookupSnapshot(snapshot);
+    const dateLabel = snapshot.priceDate ? `，收盘日 ${snapshot.priceDate}` : "";
+    const sourceLabel = snapshot.cacheHit ? "数据库缓存" : (snapshot.source || "Yahoo Finance");
+    setPriceLookupStatus(
+      `已回填 T-1 价格${dateLabel}，来源 ${sourceLabel}。`,
+      "success"
+    );
+    return snapshot;
+  } catch (error) {
+    if (requestId === priceLookupRequestId && !silent) {
+      setPriceLookupStatus(`行情获取失败：${error.message}`, "warning");
+    }
+    throw error;
+  } finally {
+    if (requestId === priceLookupRequestId && lookupPriceBtn) {
+      lookupPriceBtn.disabled = false;
+    }
+  }
+}
+
+function scheduleAutoPriceLookup() {
+  if (!currentUser) return;
+  const holding = buildHoldingDraft();
+  if (!canLookupPrice(holding)) return;
+
+  window.clearTimeout(priceLookupTimer);
+  priceLookupTimer = window.setTimeout(() => {
+    lookupT1PriceViaBridge({ silent: true }).catch(() => {});
+  }, 450);
 }
 
 async function refreshLatestPrices() {
@@ -800,7 +933,7 @@ async function refreshLatestPrices() {
 
     if (warnings.length) {
       console.warn("行情同步警告：", warnings);
-      setSyncStatus(`${prefix}；部分项目未更新，请打开控制台查看详细日志。`, "warning");
+      setSyncStatus(`${prefix}。`, "warning");
     } else {
       setSyncStatus(`${prefix}。`, "success");
     }
@@ -818,27 +951,17 @@ async function refreshLatestPrices() {
 }
 
 async function saveHolding() {
-  const holding = {
-    id: fields.id.value || generateUuid(),
-    assetType: fields.assetType.value,
-    positionSide: fields.assetType.value === "option" ? fields.positionSide.value : "long",
-    platform: fields.platform.value,
-    market: fields.market.value,
-    symbol: fields.symbol.value.trim().toUpperCase(),
-    name: fields.name.value.trim(),
-    currency: getCurrencyValue(),
-    quantity: toNumber(fields.quantity.value),
-    costPrice: fields.assetType.value === "cash" ? 1 : toNumber(fields.costPrice.value),
-    currentPrice: fields.assetType.value === "cash" ? 1 : toNumber(fields.currentPrice.value),
-    fxRate: toNumber(fields.fxRate.value) || 1,
-    targetAllocation: toNumber(fields.targetAllocation.value),
-    notes: fields.notes.value.trim(),
-    underlying: fields.assetType.value === "option" ? fields.underlying.value.trim().toUpperCase() : "",
-    optionType: fields.assetType.value === "option" ? fields.optionType.value : "",
-    strikePrice: fields.assetType.value === "option" ? toNumber(fields.strikePrice.value) : 0,
-    expiryDate: fields.assetType.value === "option" ? fields.expiryDate.value : "",
-    contractMultiplier: fields.assetType.value === "option" ? toNumber(fields.contractMultiplier.value) || 100 : 1,
-  };
+  let holding = buildHoldingDraft();
+
+  if (holding.assetType !== "cash" && holding.currentPrice <= 0 && canLookupPrice(holding)) {
+    const snapshot = await lookupT1PriceViaBridge();
+    if (snapshot?.found && snapshot.currentPrice != null) {
+      holding = {
+        ...holding,
+        currentPrice: snapshot.currentPrice,
+      };
+    }
+  }
 
   const existingIndex = holdings.findIndex((item) => item.id === holding.id);
   const method = existingIndex >= 0 ? "PUT" : "POST";
@@ -864,10 +987,9 @@ async function importHoldings(data) {
   resetForm();
 }
 
-async function continueAuth(username, password, inviteCode) {
+async function continueAuth(username, password) {
   const normalizedUsername = String(username || "").trim();
   const normalizedPassword = String(password || "");
-  const normalizedInviteCode = String(inviteCode || "").trim();
 
   if (!normalizedUsername) {
     setAuthStatus("请输入用户名。", "warning");
@@ -891,7 +1013,6 @@ async function continueAuth(username, password, inviteCode) {
       body: JSON.stringify({
         username: normalizedUsername,
         password: normalizedPassword,
-        inviteCode: normalizedInviteCode,
       }),
     });
 
@@ -924,12 +1045,9 @@ form.addEventListener("submit", (event) => {
 
 authForm.addEventListener("submit", (event) => {
   event.preventDefault();
-  continueAuth(authUsername.value, authPassword.value, authInviteCode.value)
+  continueAuth(authUsername.value, authPassword.value)
     .then(() => {
       authForm.reset();
-      if (publicConfig?.inviteRequired) {
-        authInviteCode.value = "";
-      }
     })
     .catch((error) => {
       setAuthStatus(error.message || "登录 / 注册失败", "warning");
@@ -948,11 +1066,29 @@ refreshPricesBtn.addEventListener("click", () => {
   });
 });
 fields.assetType.addEventListener("change", updateFormForAssetType);
+fields.assetType.addEventListener("change", scheduleAutoPriceLookup);
+fields.market.addEventListener("change", scheduleAutoPriceLookup);
 fields.currency.addEventListener("change", () => {
   updateCurrencyField();
   if (fields.assetType.value === "cash" && (!fields.symbol.value || fields.symbol.value.endsWith("-CASH"))) {
     fields.symbol.value = `${getCurrencyValue() || "USD"}-CASH`;
   }
+  scheduleAutoPriceLookup();
+});
+fields.optionType.addEventListener("change", scheduleAutoPriceLookup);
+
+[
+  fields.symbol,
+  fields.name,
+  fields.underlying,
+  fields.strikePrice,
+  fields.expiryDate,
+].forEach((field) => {
+  field?.addEventListener("blur", scheduleAutoPriceLookup);
+});
+
+lookupPriceBtn?.addEventListener("click", () => {
+  lookupT1PriceViaBridge().catch(() => {});
 });
 
 loadSampleBtn.addEventListener("click", () => {
@@ -1021,6 +1157,24 @@ holdingsTableBody.addEventListener("click", (event) => {
       })
       .catch((error) => window.alert(error.message || "删除失败"));
   }
+
+  if (action === "refresh-price") {
+    request(`/api/prices/refresh/${id}`, { method: "POST" })
+      .then((result) => {
+        holdings = result.holdings || holdings;
+        renderDashboard();
+        if (Array.isArray(result.warnings) && result.warnings.length) {
+          console.warn(`单条行情刷新警告(${target.symbol})：`, result.warnings);
+          setSyncStatus(`${target.symbol} 行情刷新已完成。`, "warning");
+        } else {
+          setSyncStatus(`${target.symbol} 行情刷新成功。`, "success");
+        }
+      })
+      .catch((error) => {
+        console.warn(`单条行情刷新失败(${target.symbol})：`, error.message || error);
+        setSyncStatus(`${target.symbol} 行情刷新失败。`, "warning");
+      });
+  }
 });
 
 [filterAssetType, filterPlatform, filterMarket].forEach((container, index) => {
@@ -1033,12 +1187,7 @@ holdingsTableBody.addEventListener("click", (event) => {
 
 [sortCost, sortMarketValue, sortPnl, sortAllocation].forEach((select) => {
   select?.addEventListener("change", () => {
-    activeSort =
-      sortCost.value ||
-      sortMarketValue.value ||
-      sortPnl.value ||
-      sortAllocation.value ||
-      "marketValueDesc";
+    activeSort = select.value || (select.id === "sort-market-value" ? "marketValueDesc" : "marketValueDesc");
 
     [sortCost, sortMarketValue, sortPnl, sortAllocation].forEach((item) => {
       if (item !== select && item) {

@@ -72,10 +72,10 @@
       "hero": {
         "eyebrow": "Offshore Crypto",
         "title": "加密货币内容按交易所、资金流和链上使用组织",
-        "description": "这一部分按照你的文档，直接拆成开户、入金、出金、消费、链上流转和美股链上投资，不再套用通用投资框架。",
+        "description": "加密货币部分按交易所开户、法币入金、出金、加密货币卡、链上流转和链上美股直接拆分，方便按真实动作查找。",
         "tag": "Crypto Topics",
-        "panelTitle": "按真实动作拆页更贴近使用场景",
-        "panelBody": "新增内容可以直接归到对应主题页下。",
+        "panelTitle": "按动作拆分的加密货币指南",
+        "panelBody": "从开户、入金、出金到链上转账和消费，所有内容都按可执行路径组织，适合日常使用和持续维护。",
         "badges": ["交易所", "C2C", "链上", "U 卡"],
         "actions": [
           { "label": "看开户", "href": "/crypto/accounts" },
@@ -86,14 +86,14 @@
         {
           "kind": "next-links",
           "eyebrow": "Topics",
-          "title": "加密货币栏目下的主题页",
+          "title": "加密货币栏目主题",
           "items": [
-            { "tag": "01", "title": "开户", "body": "整理各交易所开户和使用前提。", "href": "/crypto/accounts", "accent": "accent-rose" },
-            { "tag": "02", "title": "入金", "body": "收录 C2C 和链上转入。", "href": "/crypto/funding", "accent": "accent-teal" },
-            { "tag": "03", "title": "出金", "body": "收录 C2C 和券商承接路径。", "href": "/crypto/withdrawal", "accent": "accent-sand" },
-            { "tag": "04", "title": "消费", "body": "收录 U 卡和消费场景。", "href": "/crypto/spending", "accent": "accent-lime" },
-            { "tag": "05", "title": "链上流转", "body": "例如 OKX 到 Bitget，再到银行卡支付 ChatGPT 订阅这类链路。", "href": "/crypto/onchain", "accent": "accent-gold" },
-            { "tag": "06", "title": "美股链上投资", "body": "收录支持平台、优势和限制。", "href": "/crypto/onchain-us-stocks", "accent": "accent-ink" }
+            { "tag": "01", "title": "开户", "body": "整理 OKX、Binance、Bitget、SafePal、Bybit 等平台的注册与 KYC 路径。", "href": "/crypto/accounts", "accent": "accent-rose" },
+            { "tag": "02", "title": "入金", "body": "覆盖 C2C 与链上转入两种主流入金路径。", "href": "/crypto/funding", "accent": "accent-teal" },
+            { "tag": "03", "title": "出金", "body": "覆盖 C2C 卖币与券商承接港币等出金场景。", "href": "/crypto/withdrawal", "accent": "accent-sand" },
+            { "tag": "04", "title": "消费", "body": "整理 U 卡、支付链路和日常消费场景。", "href": "/crypto/spending", "accent": "accent-lime" },
+            { "tag": "05", "title": "链上流转", "body": "整理转账、gas、跨链桥与平台之间的资产调度。", "href": "/crypto/onchain", "accent": "accent-gold" },
+            { "tag": "06", "title": "美股链上投资", "body": "收录链上美股平台、优势与结构性限制。", "href": "/crypto/onchain-us-stocks", "accent": "accent-ink" }
           ]
         }
       ]

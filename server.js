@@ -4,8 +4,6 @@ const { marked } = require("marked");
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
-const { execFile } = require("child_process");
-const { promisify } = require("util");
 
 loadEnvFile(".env");
 loadEnvFile(".env.example");
@@ -17,31 +15,9 @@ const DB_PORT = Number(process.env.DB_PORT || 3306);
 const DB_USER = process.env.DB_USER || "root";
 const DB_PASSWORD = process.env.DB_PASSWORD || "zhao6776423";
 const DB_NAME = process.env.DB_NAME || "investment_dashboard";
-const EODHD_API_KEY = process.env.EODHD_API_KEY || "";
-const ALPHA_VANTAGE_API_KEY = process.env.ALPHA_VANTAGE_API_KEY || "";
-const ALPHA_VANTAGE_MIN_INTERVAL_MS = Number(process.env.ALPHA_VANTAGE_MIN_INTERVAL_MS || 1200);
-const POLYGON_API_KEY = process.env.POLYGON_API_KEY || "";
-const CRYPTO_PROXY_URL = process.env.CRYPTO_PROXY_URL || "";
-const CRYPTO_CCXT_TIMEOUT_MS = Number(process.env.CRYPTO_CCXT_TIMEOUT_MS || 30000);
-const PYTHON_BIN = process.env.PYTHON_BIN || "python3";
+const QUOTE_PROXY_URL = process.env.QUOTE_PROXY_URL || "http://127.0.0.1:8000";
 const SESSION_COOKIE_NAME = "investment_session";
 const SESSION_TTL_DAYS = 30;
-const INVITE_CODE = String(process.env.INVITE_CODE || "").trim();
-const MANUAL_FX_CURRENCIES = new Set(["USD", "USDT", "USDC"]);
-const COINGECKO_SYMBOL_MAP = {
-  BTC: "bitcoin",
-  ETH: "ethereum",
-  SOL: "solana",
-  BNB: "binancecoin",
-  XRP: "ripple",
-  DOGE: "dogecoin",
-  ADA: "cardano",
-  SUI: "sui",
-  TON: "the-open-network",
-};
-const BINANCE_QUOTE_PRIORITY = ["USDT", "USDC", "BUSD", "FDUSD", "USD"];
-const BINANCE_DIRECT_QUOTES = new Set(["USD", "USDT", "USDC", "BUSD", "FDUSD"]);
-const CCXT_FALLBACK_QUOTES = ["USDT", "USD", "USDC"];
 const CONTENT_FILES = [
   path.join(__dirname, "data", "site.json"),
   path.join(__dirname, "data", "home.json"),
@@ -52,8 +28,6 @@ const CONTENT_FILES = [
 ];
 
 const app = express();
-let lastAlphaVantageRequestAt = 0;
-const execFileAsync = promisify(execFile);
 let databaseReady = false;
 
 function getLanAddresses() {
@@ -319,6 +293,10 @@ function mapUser(row) {
 function mapRow(row) {
   return {
     id: row.id,
+    userId: row.user_id || null,
+    portfolioId: row.portfolio_id || null,
+    accountId: row.account_id || null,
+    instrumentId: row.instrument_id || null,
     assetType: row.asset_type,
     positionSide: row.position_side,
     platform: row.platform,
@@ -337,10 +315,235 @@ function mapRow(row) {
     strikePrice: row.strike_price == null ? 0 : Number(row.strike_price),
     expiryDate: toDateOnly(row.expiry_date),
     contractMultiplier: Number(row.contract_multiplier || 1),
+    status: row.status || "OPEN",
+    openedAt: row.opened_at || null,
+    closedAt: row.closed_at || null,
+    bookCostTotal: Number(row.book_cost_total || 0),
+    realizedPnlTotal: Number(row.realized_pnl_total || 0),
     lastPriceSyncDate: toDateOnly(row.last_price_sync_date),
     lastPriceSyncStatus: row.last_price_sync_status || "",
     lastPriceSyncError: row.last_price_sync_error || "",
   };
+}
+
+function normalizeNullableText(value) {
+  const normalized = String(value == null ? "" : value).trim();
+  return normalized || null;
+}
+
+async function findOrCreateDefaultPortfolio(userId) {
+  const [existingRows] = await pool.query(
+    "SELECT * FROM portfolios WHERE user_id = ? AND is_default = 1 LIMIT 1",
+    [userId]
+  );
+
+  if (existingRows[0]) {
+    return existingRows[0];
+  }
+
+  const portfolio = {
+    id: createId(),
+    userId,
+    name: "默认组合",
+    baseCurrency: "USD",
+    description: "系统为历史持仓自动创建的默认组合",
+  };
+
+  await pool.query(
+    `INSERT INTO portfolios (id, user_id, name, base_currency, description, is_default, status)
+     VALUES (?, ?, ?, ?, ?, 1, 'ACTIVE')`,
+    [portfolio.id, portfolio.userId, portfolio.name, portfolio.baseCurrency, portfolio.description]
+  );
+
+  const [rows] = await pool.query("SELECT * FROM portfolios WHERE id = ? LIMIT 1", [portfolio.id]);
+  return rows[0];
+}
+
+async function findOrCreateLedgerAccount(userId, portfolioId, holding) {
+  const accountName = `${holding.platform} 账户`;
+  const [existingRows] = await pool.query(
+    `SELECT * FROM accounts
+     WHERE user_id = ? AND portfolio_id = ? AND platform = ? AND name = ?
+     LIMIT 1`,
+    [userId, portfolioId, holding.platform, accountName]
+  );
+
+  if (existingRows[0]) {
+    return existingRows[0];
+  }
+
+  const account = {
+    id: createId(),
+    userId,
+    portfolioId,
+    name: accountName,
+    platform: holding.platform,
+    marketScope: holding.market || null,
+    baseCurrency: holding.currency || "USD",
+  };
+
+  await pool.query(
+    `INSERT INTO accounts (
+      id, user_id, portfolio_id, name, platform, market_scope, base_currency, status
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, 'ACTIVE')`,
+    [
+      account.id,
+      account.userId,
+      account.portfolioId,
+      account.name,
+      account.platform,
+      account.marketScope,
+      account.baseCurrency,
+    ]
+  );
+
+  const [rows] = await pool.query("SELECT * FROM accounts WHERE id = ? LIMIT 1", [account.id]);
+  return rows[0];
+}
+
+async function findOrCreateInstrument(holding) {
+  const params = [
+    holding.assetType,
+    holding.market,
+    holding.symbol,
+    holding.currency,
+    normalizeNullableText(holding.underlying),
+    normalizeNullableText(holding.optionType),
+    holding.strikePrice == null ? null : Number(holding.strikePrice),
+    toDateOnly(holding.expiryDate),
+  ];
+
+  const [existingRows] = await pool.query(
+    `SELECT * FROM instruments
+     WHERE asset_type = ?
+       AND market = ?
+       AND symbol = ?
+       AND quote_currency = ?
+       AND (
+         (underlying_symbol IS NULL AND ? IS NULL) OR underlying_symbol = ?
+       )
+       AND (
+         (option_type IS NULL AND ? IS NULL) OR option_type = ?
+       )
+       AND (
+         (strike_price IS NULL AND ? IS NULL) OR strike_price = ?
+       )
+       AND (
+         (expiry_date IS NULL AND ? IS NULL) OR expiry_date = ?
+       )
+     LIMIT 1`,
+    [
+      ...params.slice(0, 4),
+      params[4], params[4],
+      params[5], params[5],
+      params[6], params[6],
+      params[7], params[7],
+    ]
+  );
+
+  if (existingRows[0]) {
+    return existingRows[0];
+  }
+
+  const instrument = {
+    id: createId(),
+    assetType: holding.assetType,
+    market: holding.market,
+    symbol: holding.symbol,
+    displaySymbol: holding.symbol,
+    name: holding.name,
+    quoteCurrency: holding.currency,
+    underlyingSymbol: normalizeNullableText(holding.underlying),
+    optionType: normalizeNullableText(holding.optionType),
+    strikePrice: holding.strikePrice == null ? null : Number(holding.strikePrice),
+    expiryDate: toDateOnly(holding.expiryDate),
+    contractMultiplier: Number(holding.contractMultiplier || 1),
+  };
+
+  await pool.query(
+    `INSERT INTO instruments (
+      id, asset_type, market, symbol, display_symbol, name, quote_currency,
+      underlying_symbol, option_type, strike_price, expiry_date,
+      contract_multiplier, exchange_code, yahoo_symbol, is_active
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, 1)`,
+    [
+      instrument.id,
+      instrument.assetType,
+      instrument.market,
+      instrument.symbol,
+      instrument.displaySymbol,
+      instrument.name,
+      instrument.quoteCurrency,
+      instrument.underlyingSymbol,
+      instrument.optionType,
+      instrument.strikePrice,
+      instrument.expiryDate,
+      instrument.contractMultiplier,
+      instrument.symbol,
+    ]
+  );
+
+  const [rows] = await pool.query("SELECT * FROM instruments WHERE id = ? LIMIT 1", [instrument.id]);
+  return rows[0];
+}
+
+async function backfillLedgerReferences() {
+  const [users] = await pool.query("SELECT id FROM users");
+
+  for (const user of users) {
+    await findOrCreateDefaultPortfolio(user.id);
+  }
+
+  const [rows] = await pool.query(
+    `SELECT *
+     FROM holdings
+     WHERE user_id IS NOT NULL
+       AND (
+         portfolio_id IS NULL OR account_id IS NULL OR instrument_id IS NULL OR
+         opened_at IS NULL OR book_cost_total = 0
+       )
+     ORDER BY created_at ASC`
+  );
+
+  for (const row of rows) {
+    const holding = mapRow(row);
+    const portfolio = await findOrCreateDefaultPortfolio(holding.userId);
+    const account = await findOrCreateLedgerAccount(holding.userId, portfolio.id, holding);
+    const instrument = await findOrCreateInstrument(holding);
+    const quantity = Number(holding.quantity || 0);
+    const costPrice = Number(holding.costPrice || 0);
+    const fxRate = Number(holding.fxRate || 1) || 1;
+    const multiplier = Number(holding.contractMultiplier || 1) || 1;
+    const computedBookCost =
+      holding.assetType === "cash"
+        ? quantity * fxRate
+        : quantity * costPrice * multiplier * fxRate;
+    const openedAt = holding.openedAt || row.created_at || row.updated_at || new Date();
+    const status = quantity === 0 ? "CLOSED" : "OPEN";
+
+    await pool.query(
+      `UPDATE holdings
+       SET portfolio_id = ?,
+           account_id = ?,
+           instrument_id = ?,
+           status = ?,
+           opened_at = COALESCE(opened_at, ?),
+           book_cost_total = CASE
+             WHEN book_cost_total IS NULL OR book_cost_total = 0 THEN ?
+             ELSE book_cost_total
+           END
+       WHERE id = ?`,
+      [
+        portfolio.id,
+        account.id,
+        instrument.id,
+        status,
+        openedAt,
+        computedBookCost,
+        holding.id,
+      ]
+    );
+  }
 }
 
 function parseNumber(value) {
@@ -374,620 +577,177 @@ function getCurrentDateString() {
   return `${year}-${month}-${day}`;
 }
 
-function shiftDateString(dateString, offsetDays) {
-  const value = new Date(`${dateString}T00:00:00Z`);
-  value.setUTCDate(value.getUTCDate() + offsetDays);
-  return value.toISOString().slice(0, 10);
-}
-
-function toCoinGeckoDate(dateString) {
-  const [year, month, day] = String(dateString || "").split("-");
-  return `${day}-${month}-${year}`;
-}
-
-function toCompactDate(dateString) {
-  return String(dateString || "").replaceAll("-", "");
-}
-
-function normalizeMacroSymbol(symbol) {
-  return String(symbol || "").trim().toUpperCase().replace(/[^A-Z]/g, "");
-}
-
-function toOptionExpiryCode(dateString) {
-  const normalized = toDateOnly(dateString);
-  if (!normalized || normalized.length !== 10) return "";
-  return normalized.slice(2, 4) + normalized.slice(5, 7) + normalized.slice(8, 10);
-}
-
-function toPolygonStrikeCode(value) {
-  const strikeValue = Number(value);
-  if (!Number.isFinite(strikeValue) || strikeValue <= 0) return "";
-  return String(Math.round(strikeValue * 1000)).padStart(8, "0");
-}
-
-function extractKrStockCode(symbol) {
-  const normalized = String(symbol || "").toUpperCase();
-  const digits = normalized.match(/\d{6}/);
-  return digits ? digits[0] : normalized.replace(/[^0-9]/g, "").slice(0, 6);
-}
-
-function buildPolygonOptionTicker(holding) {
-  const rawSymbol = String(holding.symbol || "").trim().toUpperCase();
-  if (rawSymbol.startsWith("O:")) {
-    return rawSymbol;
-  }
-
-  const root = String(holding.underlying || holding.symbol || "").trim().toUpperCase();
-  const expiryCode = toOptionExpiryCode(holding.expiryDate);
-  const strikeCode = toPolygonStrikeCode(holding.strikePrice);
-  const optionSide = String(holding.optionType || "").trim().toLowerCase();
-  const contractType = optionSide === "put" ? "P" : optionSide === "call" ? "C" : "";
-
-  if (!root || !expiryCode || !strikeCode || !contractType) {
-    return "";
-  }
-
-  return `O:${root}${expiryCode}${contractType}${strikeCode}`;
-}
-
-function getAlphaVantageUrl(params) {
-  const url = new URL("https://www.alphavantage.co/query");
-  Object.entries({ ...params, apikey: ALPHA_VANTAGE_API_KEY }).forEach(([key, value]) => {
-    if (value != null && value !== "") {
-      url.searchParams.set(key, value);
-    }
-  });
-  return url;
-}
-
-function getEodhdUrl(pathname, params = {}) {
-  const url = new URL(`https://eodhd.com/api/${pathname}`);
-  Object.entries({ ...params, api_token: EODHD_API_KEY, fmt: "json" }).forEach(([key, value]) => {
-    if (value != null && value !== "") {
-      url.searchParams.set(key, value);
-    }
-  });
-  return url;
-}
-
-async function fetchJson(url) {
+async function fetchJson(url, options = {}) {
   const response = await fetch(url, {
-    signal: AbortSignal.timeout(15000),
+    signal: AbortSignal.timeout(options.timeoutMs || 15000),
+    method: options.method || "GET",
+    headers: {
+      Accept: "application/json",
+      ...(options.body ? { "Content-Type": "application/json" } : {}),
+      ...(options.headers || {}),
+    },
+    body: options.body ? JSON.stringify(options.body) : undefined,
   });
 
   if (!response.ok) {
-    throw new Error(`HTTP ${response.status}`);
+    let detail = "";
+    try {
+      const payload = await response.json();
+      detail = payload?.error?.message || payload?.error || payload?.message || "";
+    } catch {
+      detail = await response.text();
+    }
+    throw new Error(detail ? `HTTP ${response.status}: ${detail}` : `HTTP ${response.status}`);
   }
 
   return response.json();
 }
 
-async function fetchAlphaVantage(params) {
-  if (!ALPHA_VANTAGE_API_KEY) {
-    throw new Error("Missing ALPHA_VANTAGE_API_KEY");
-  }
-
-  const waitMs = Math.max(0, lastAlphaVantageRequestAt + ALPHA_VANTAGE_MIN_INTERVAL_MS - Date.now());
-  if (waitMs > 0) {
-    await new Promise((resolve) => setTimeout(resolve, waitMs));
-  }
-
-  const payload = await fetchJson(getAlphaVantageUrl(params));
-  lastAlphaVantageRequestAt = Date.now();
-
-  if (payload.Note || payload.Information) {
-    throw new Error(payload.Note || payload.Information);
-  }
-
-  if (payload["Error Message"]) {
-    throw new Error(payload["Error Message"]);
-  }
-
-  return payload;
+function normalizeCacheToken(value) {
+  return String(value == null ? "" : value).trim().toUpperCase();
 }
 
-async function fetchEodhd(pathname, params = {}) {
-  if (!EODHD_API_KEY) {
-    throw new Error("Missing EODHD_API_KEY");
-  }
+function buildQuoteCacheKey(holding, requestDate) {
+  const isOption = holding.assetType === "option";
+  const symbol = isOption ? normalizeCacheToken(holding.underlying || holding.symbol) : normalizeCacheToken(holding.symbol);
+  const strikeToken = isOption ? String(Number(holding.strikePrice || 0).toFixed(3)) : "";
 
-  const payload = await fetchJson(getEodhdUrl(pathname, params));
-  if (payload?.error) {
-    throw new Error(payload.error);
-  }
-  return payload;
+  return [
+    normalizeCacheToken(holding.assetType),
+    normalizeCacheToken(holding.market),
+    symbol,
+    normalizeCacheToken(holding.currency),
+    normalizeCacheToken(holding.optionType),
+    strikeToken,
+    toDateOnly(holding.expiryDate) || "",
+    toDateOnly(requestDate) || "",
+  ].join("|");
 }
 
-function toEodhdUsSymbol(symbol) {
-  const normalized = String(symbol || "").trim().toUpperCase();
-  if (!normalized) return "";
-  return normalized.includes(".") ? normalized : `${normalized}.US`;
+function normalizeProxyQuoteResult(payload, holding, requestDate) {
+  const currentPrice = parseNumber(payload?.currentPrice);
+  const quoteCurrency = normalizeCacheToken(payload?.quoteCurrency || holding.currency) || holding.currency;
+  const priceDate = toDateOnly(payload?.priceDate) || toDateOnly(requestDate);
+
+  return {
+    found: Boolean(payload?.found && currentPrice != null),
+    currentPrice,
+    quoteCurrency,
+    priceDate,
+    source: String(payload?.source || "Yahoo Finance proxy").trim(),
+    notes: String(payload?.detail || payload?.notes || "").trim(),
+  };
 }
 
-function toEodhdForexSymbol(baseCurrency, quoteCurrency = "USD") {
-  const base = String(baseCurrency || "").trim().toUpperCase();
-  const quote = String(quoteCurrency || "").trim().toUpperCase();
-  if (!base || !quote) return "";
-  return `${base}${quote}.FOREX`;
-}
-
-async function fetchEodhdLatestClose(symbolCode, cache, cacheKey) {
-  if (cache.has(cacheKey)) return cache.get(cacheKey);
-
-  const to = getCurrentDateString();
-  const from = shiftDateString(to, -10);
-  const payload = await fetchEodhd(`eod/${symbolCode}`, { from, to, order: "a" });
-  const series = Array.isArray(payload) ? payload : payload ? [payload] : [];
-  const latest = [...series].reverse().find((item) => parseNumber(item?.close) != null);
-  const price = latest ? parseNumber(latest.close) : null;
-
-  if (price == null) {
-    throw new Error(`No EODHD close returned for ${symbolCode}`);
-  }
-
-  cache.set(cacheKey, price);
-  return price;
-}
-
-async function fetchUsdFxRate(currency, cache) {
-  const normalized = String(currency || "").toUpperCase();
-  if (!normalized || MANUAL_FX_CURRENCIES.has(normalized)) return 1;
-  if (cache.has(normalized)) return cache.get(normalized);
-
-  const symbolCode = toEodhdForexSymbol(normalized, "USD");
-  const rate = await fetchEodhdLatestClose(symbolCode, cache, normalized);
-  if (rate == null) {
-    throw new Error(`No FX rate returned for ${normalized}/USD`);
-  }
-
-  cache.set(normalized, rate);
-  return rate;
-}
-
-async function fetchStockPrice(holding, stockCache) {
-  const key = `${holding.market}:${holding.symbol}`;
-  if (stockCache.has(key)) return stockCache.get(key);
-
-  if (holding.market === "KR") {
-    const price = await fetchKrStockPrice(holding, stockCache);
-    stockCache.set(key, price);
-    return price;
-  }
-
-  if (holding.market !== "US") {
-    throw new Error(`Stock auto-refresh currently supports US/KR quotes only (${holding.symbol})`);
-  }
-
-  const symbolCode = toEodhdUsSymbol(holding.symbol);
-  const price = await fetchEodhdLatestClose(symbolCode, stockCache, key);
-  if (price == null) {
-    throw new Error(`No quote returned for ${holding.symbol}`);
-  }
-
-  stockCache.set(key, price);
-  return price;
-}
-
-async function fetchKrStockPrice(holding, stockCache) {
-  const shortCode = extractKrStockCode(holding.symbol);
-  if (!shortCode) {
-    throw new Error(`Invalid KR stock code: ${holding.symbol}`);
-  }
-
-  const cacheKey = `KR:${shortCode}:latest-close`;
-  if (stockCache.has(cacheKey)) {
-    return stockCache.get(cacheKey);
-  }
-
-  try {
-    const price = await fetchKrStockPriceWithFdr(shortCode);
-    stockCache.set(cacheKey, price);
-    return price;
-  } catch (error) {
-    throw new Error(`FinanceDataReader lookup failed for ${holding.symbol}: ${error.message}`);
-  }
-}
-
-async function fetchKrStockPriceWithFdr(shortCode) {
-  const script = `
-import json
-import sys
-
-try:
-    import FinanceDataReader as fdr
-except ModuleNotFoundError as exc:
-    raise SystemExit(f"MODULE_NOT_FOUND:{exc.name}")
-
-symbol = sys.argv[1]
-df = fdr.DataReader(symbol)
-
-if df is None or df.empty:
-    raise SystemExit("EMPTY_DATA")
-
-if "Close" not in df.columns:
-    raise SystemExit("MISSING_CLOSE")
-
-close_series = df["Close"].dropna()
-if close_series.empty:
-    raise SystemExit("EMPTY_CLOSE")
-
-last_index = close_series.index[-1]
-payload = {
-    "date": str(last_index.date() if hasattr(last_index, "date") else last_index)[:10],
-    "close": float(close_series.iloc[-1]),
-}
-print(json.dumps(payload, ensure_ascii=True))
-  `.trim();
-
-  try {
-    const { stdout } = await execFileAsync(
-      PYTHON_BIN,
-      ["-c", script, shortCode],
-      { timeout: 20000, maxBuffer: 1024 * 1024 }
-    );
-
-    const payload = JSON.parse(String(stdout || "").trim());
-    const price = parseNumber(payload.close);
-    if (price == null) {
-      throw new Error("No close price returned");
-    }
-    return price;
-  } catch (error) {
-    const stderr = String(error.stderr || "").trim();
-    const stdout = String(error.stdout || "").trim();
-    const detail = stderr || stdout || error.message;
-
-    if (detail.includes("MODULE_NOT_FOUND:FinanceDataReader")) {
-      throw new Error(`FinanceDataReader is not installed for ${PYTHON_BIN}. Run: ${PYTHON_BIN} -m pip install finance-datareader`);
-    }
-
-    if (detail.includes("MODULE_NOT_FOUND:")) {
-      throw new Error(`Python dependency missing in ${PYTHON_BIN}: ${detail}`);
-    }
-
-    if (detail.includes("EMPTY_DATA") || detail.includes("EMPTY_CLOSE") || detail.includes("MISSING_CLOSE")) {
-      throw new Error(`No recent close returned for KR stock code ${shortCode}`);
-    }
-
-    throw new Error(detail);
-  }
-}
-
-async function fetchOptionPrice(holding, optionCache) {
-  if (!POLYGON_API_KEY) {
-    throw new Error("Missing POLYGON_API_KEY");
-  }
-
-  const ticker = buildPolygonOptionTicker(holding);
-  if (!ticker) {
-    throw new Error(`Cannot build Polygon option ticker from ${holding.symbol}`);
-  }
-
-  if (optionCache.has(ticker)) {
-    return optionCache.get(ticker);
-  }
-
-  const script = `
-from polygon import RESTClient
-from datetime import datetime, timedelta
-import json
-import sys
-
-api_key = sys.argv[1]
-ticker = sys.argv[2]
-client = RESTClient(api_key)
-
-end_date = datetime.utcnow().date()
-
-for offset in range(1, 8):
-    day = (end_date - timedelta(days=offset)).strftime("%Y-%m-%d")
-    aggs = client.get_aggs(
-        ticker=ticker,
-        multiplier=1,
-        timespan="day",
-        from_=day,
-        to=day,
-    )
-    if aggs:
-        first = aggs[0]
-        close = getattr(first, "close", None)
-        if close is not None:
-            print(json.dumps({"date": day, "close": float(close)}, ensure_ascii=True))
-            break
-else:
-    raise SystemExit("NO_OPTION_AGG")
-  `.trim();
-
-  try {
-    const { stdout } = await execFileAsync(
-      PYTHON_BIN,
-      ["-c", script, POLYGON_API_KEY, ticker],
-      { timeout: 20000, maxBuffer: 1024 * 1024 }
-    );
-
-    const payload = JSON.parse(String(stdout || "").trim());
-    const price = parseNumber(payload.close);
-    if (price == null) {
-      throw new Error("No option close price returned");
-    }
-
-    optionCache.set(ticker, price);
-    return price;
-  } catch (error) {
-    const stderr = String(error.stderr || "").trim();
-    const stdout = String(error.stdout || "").trim();
-    const detail = stderr || stdout || error.message;
-
-    if (detail.includes("No module named 'polygon'") || detail.includes('No module named "polygon"')) {
-      throw new Error(`polygon-api-client is not installed for ${PYTHON_BIN}. Run: ${PYTHON_BIN} -m pip install polygon-api-client`);
-    }
-
-    if (detail.includes("NO_OPTION_AGG")) {
-      throw new Error(`No recent Polygon daily close returned for ${ticker}`);
-    }
-
-    throw new Error(detail);
-  }
-}
-
-async function fetchMacroPrice(holding, macroCache) {
-  if (!POLYGON_API_KEY) {
-    throw new Error("Missing POLYGON_API_KEY");
-  }
-
-  const normalized = normalizeMacroSymbol(holding.symbol);
-  if (!normalized || normalized.length < 6) {
-    throw new Error(`Invalid macro symbol: ${holding.symbol}`);
-  }
-
-  const ticker = normalized.startsWith("C:") ? normalized : `C:${normalized}`;
-  if (macroCache.has(ticker)) {
-    return macroCache.get(ticker);
-  }
-
-  const script = `
-from polygon import RESTClient
-from datetime import datetime, timedelta
-import json
-import sys
-
-api_key = sys.argv[1]
-ticker = sys.argv[2]
-client = RESTClient(api_key)
-
-end_date = datetime.utcnow().date()
-
-for offset in range(1, 8):
-    day = (end_date - timedelta(days=offset)).strftime("%Y-%m-%d")
-    aggs = client.get_aggs(
-        ticker=ticker,
-        multiplier=1,
-        timespan="day",
-        from_=day,
-        to=day,
-    )
-    if aggs:
-        first = aggs[0]
-        close = getattr(first, "close", None)
-        if close is not None:
-            print(json.dumps({"date": day, "close": float(close)}, ensure_ascii=True))
-            break
-else:
-    raise SystemExit("NO_MACRO_AGG")
-  `.trim();
-
-  try {
-    const { stdout } = await execFileAsync(
-      PYTHON_BIN,
-      ["-c", script, POLYGON_API_KEY, ticker],
-      { timeout: 20000, maxBuffer: 1024 * 1024 }
-    );
-
-    const payload = JSON.parse(String(stdout || "").trim());
-    const price = parseNumber(payload.close);
-    if (price == null) {
-      throw new Error("No macro close price returned");
-    }
-
-    macroCache.set(ticker, price);
-    return price;
-  } catch (error) {
-    const stderr = String(error.stderr || "").trim();
-    const stdout = String(error.stdout || "").trim();
-    const detail = stderr || stdout || error.message;
-
-    if (detail.includes("No module named 'polygon'") || detail.includes('No module named "polygon"')) {
-      throw new Error(`polygon-api-client is not installed for ${PYTHON_BIN}. Run: ${PYTHON_BIN} -m pip install polygon-api-client`);
-    }
-
-    if (detail.includes("NO_MACRO_AGG")) {
-      throw new Error(`No recent Polygon daily close returned for ${ticker}`);
-    }
-
-    throw new Error(detail);
-  }
-}
-
-async function resolveCoinGeckoId(symbol, coinIdCache) {
-  const normalized = String(symbol || "").toUpperCase();
-  if (coinIdCache.has(normalized)) return coinIdCache.get(normalized);
-
-  if (COINGECKO_SYMBOL_MAP[normalized]) {
-    coinIdCache.set(normalized, COINGECKO_SYMBOL_MAP[normalized]);
-    return COINGECKO_SYMBOL_MAP[normalized];
-  }
-
-  const payload = await fetchJson(`https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(normalized)}`);
-  const match = Array.isArray(payload.coins)
-    ? payload.coins.find((coin) => String(coin.symbol || "").toUpperCase() === normalized)
-    : null;
-
-  if (!match?.id) {
-    throw new Error(`CoinGecko could not resolve symbol ${normalized}`);
-  }
-
-  coinIdCache.set(normalized, match.id);
-  return match.id;
-}
-
-async function fetchBinanceT1Close(symbol, currency, binanceCache) {
-  const base = String(symbol || "").toUpperCase();
-  const quote = String(currency || "").toUpperCase();
-
-  if (!BINANCE_DIRECT_QUOTES.has(quote)) {
-    return null;
-  }
-
-  const candidates = [quote, ...BINANCE_QUOTE_PRIORITY.filter((item) => item !== quote)];
-
-  for (const candidateQuote of candidates) {
-    const pair = `${base}${candidateQuote}`;
-    if (binanceCache.has(pair)) {
-      const cached = binanceCache.get(pair);
-      if (cached != null) return { price: cached, quoteCurrency: candidateQuote };
-      continue;
-    }
-
-    try {
-      const payload = await fetchJson(
-        `https://api.binance.com/api/v3/klines?symbol=${encodeURIComponent(pair)}&interval=1d&limit=2`
-      );
-
-      if (!Array.isArray(payload) || payload.length === 0) {
-        binanceCache.set(pair, null);
-        continue;
-      }
-
-      const lastClosedCandle = payload.length >= 2 ? payload[payload.length - 2] : payload[payload.length - 1];
-      const close = Array.isArray(lastClosedCandle) ? parseNumber(lastClosedCandle[4]) : null;
-      if (close == null) {
-        binanceCache.set(pair, null);
-        continue;
-      }
-
-      binanceCache.set(pair, close);
-      return { price: close, quoteCurrency: candidateQuote };
-    } catch {
-      binanceCache.set(pair, null);
-    }
-  }
-
-  return null;
-}
-
-async function fetchCcxtCryptoPrice(symbol, currency, cryptoExchangeCache) {
-  const base = String(symbol || "").trim().toUpperCase();
-  const quote = String(currency || "").trim().toUpperCase();
-  if (!base || !quote) {
-    throw new Error("Missing crypto symbol or currency");
-  }
-
-  const candidates = BINANCE_DIRECT_QUOTES.has(quote)
-    ? [quote, ...CCXT_FALLBACK_QUOTES.filter((item) => item !== quote)]
-    : [...CCXT_FALLBACK_QUOTES];
-
-  const script = `
-import json
-import sys
-import ccxt
-from datetime import datetime, timedelta
-
-symbol = sys.argv[1]
-proxy = sys.argv[2] if len(sys.argv) > 2 else ""
-timeout = int(sys.argv[3]) if len(sys.argv) > 3 else 30000
-
-config = {
-    "enableRateLimit": True,
-    "timeout": timeout,
-}
-if proxy:
-    config["proxies"] = {
-        "http": proxy,
-        "https": proxy,
-    }
-
-exchange = ccxt.binance(config)
-yesterday = datetime.now() - timedelta(days=1)
-since = int(yesterday.timestamp() * 1000)
-ohlcv = exchange.fetch_ohlcv(symbol, timeframe="1d", since=since, limit=1)
-
-if not ohlcv:
-    raise SystemExit("NO_CCXT_CANDLES")
-
-timestamp, _open, _high, _low, close, _volume = ohlcv[0]
-if close is None:
-    raise SystemExit("NO_CCXT_CLOSE")
-
-print(json.dumps({"timestamp": timestamp, "close": float(close)}, ensure_ascii=True))
-  `.trim();
-
-  for (const candidateQuote of candidates) {
-    const pair = `${base}/${candidateQuote}`;
-    if (cryptoExchangeCache.has(pair)) {
-      const cached = cryptoExchangeCache.get(pair);
-      if (cached != null) return cached;
-      continue;
-    }
-
-    try {
-      const { stdout } = await execFileAsync(
-        PYTHON_BIN,
-        ["-c", script, pair, CRYPTO_PROXY_URL, String(CRYPTO_CCXT_TIMEOUT_MS)],
-        { timeout: CRYPTO_CCXT_TIMEOUT_MS + 10000, maxBuffer: 1024 * 1024 }
-      );
-      const payload = JSON.parse(String(stdout || "").trim());
-      const price = parseNumber(payload.close);
-      if (price == null) {
-        throw new Error("No ccxt crypto close price returned");
-      }
-      const result = { price, quoteCurrency: candidateQuote };
-      cryptoExchangeCache.set(pair, result);
-      return result;
-    } catch (error) {
-      const stderr = String(error.stderr || "").trim();
-      const stdout = String(error.stdout || "").trim();
-      const detail = stderr || stdout || error.message;
-
-      if (detail.includes("No module named 'ccxt'") || detail.includes('No module named "ccxt"')) {
-        throw new Error(`ccxt is not installed for ${PYTHON_BIN}. Run: ${PYTHON_BIN} -m pip install ccxt`);
-      }
-      if (detail.includes("NO_CCXT_CANDLES") || detail.includes("NO_CCXT_CLOSE")) {
-        cryptoExchangeCache.set(pair, null);
-        continue;
-      }
-      if (CRYPTO_PROXY_URL && (detail.includes("RequestTimeout") || detail.includes("NetworkError") || detail.includes("Proxy"))) {
-        cryptoExchangeCache.set(pair, null);
-        continue;
-      }
-
-      cryptoExchangeCache.set(pair, null);
-      continue;
-    }
-  }
-
-  throw new Error(`No recent ccxt daily close returned for ${base} with supported Binance quotes`);
-}
-
-async function fetchCryptoPrice(holding, cryptoCache, coinIdCache) {
-  const key = `${holding.symbol}:${holding.currency}`;
-  if (cryptoCache.has(key)) return cryptoCache.get(key);
-
-  const currency = String(holding.currency || "").toLowerCase();
-  const supportedVs = ["usd", "hkd", "krw", "usdt", "usdc"];
-  const vsCurrency = supportedVs.includes(currency) ? currency : "usd";
-  const coinId = await resolveCoinGeckoId(holding.symbol, coinIdCache);
-  const targetDate = getYesterdayDateString();
-  const payload = await fetchJson(
-    `https://api.coingecko.com/api/v3/coins/${coinId}/history?date=${toCoinGeckoDate(targetDate)}&localization=false`
+async function getCachedQuote(holding, requestDate) {
+  const cacheKey = buildQuoteCacheKey(holding, requestDate);
+  const [rows] = await pool.query(
+    "SELECT * FROM market_quotes WHERE cache_key = ? LIMIT 1",
+    [cacheKey]
   );
+  const row = rows[0];
+  if (!row) return null;
 
-  const price = parseNumber(payload.market_data?.current_price?.[vsCurrency]);
-  if (price == null) {
-    throw new Error(`No T-1 crypto price returned for ${holding.symbol}/${holding.currency}`);
+  return {
+    found: row.current_price != null,
+    currentPrice: row.current_price == null ? null : Number(row.current_price),
+    quoteCurrency: row.quote_currency || holding.currency,
+    priceDate: toDateOnly(row.price_date) || requestDate,
+    source: row.source || "MySQL market cache",
+    notes: "cache_hit",
+    cacheHit: true,
+  };
+}
+
+async function storeQuoteInCache(holding, requestDate, snapshot) {
+  const cacheKey = buildQuoteCacheKey(holding, requestDate);
+  await pool.query(
+    `INSERT INTO market_quotes (
+      cache_key, request_date, asset_type, market, symbol, currency,
+      underlying, option_type, strike_price, expiry_date,
+      current_price, quote_currency, price_date, source, fetched_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+    ON DUPLICATE KEY UPDATE
+      current_price = VALUES(current_price),
+      quote_currency = VALUES(quote_currency),
+      price_date = VALUES(price_date),
+      source = VALUES(source),
+      fetched_at = NOW()`,
+    [
+      cacheKey,
+      requestDate,
+      holding.assetType,
+      holding.market,
+      holding.symbol,
+      holding.currency,
+      holding.underlying || "",
+      holding.optionType || "",
+      Number(holding.strikePrice || 0),
+      toDateOnly(holding.expiryDate),
+      snapshot.currentPrice,
+      snapshot.quoteCurrency || holding.currency,
+      toDateOnly(snapshot.priceDate) || requestDate,
+      snapshot.source || "Yahoo Finance proxy",
+    ]
+  );
+}
+
+async function fetchQuoteFromProxy(holding, requestDate) {
+  if (holding.assetType === "cash") {
+    return {
+      found: true,
+      currentPrice: 1,
+      quoteCurrency: holding.currency,
+      priceDate: requestDate,
+      source: "local_cash",
+      notes: "",
+      cacheHit: true,
+    };
   }
 
-  cryptoCache.set(key, price);
-  return price;
+  if (!["stock", "crypto", "option", "macro"].includes(holding.assetType)) {
+    throw new Error(`Proxy quote does not support asset type ${holding.assetType}`);
+  }
+
+  const payload = {
+    assetType: holding.assetType,
+    symbol: holding.symbol,
+    market: holding.market,
+    currency: holding.currency,
+  };
+
+  if (holding.assetType === "option") {
+    payload.underlying = holding.underlying || null;
+    payload.optionType = holding.optionType || null;
+    payload.strikePrice = holding.strikePrice == null ? null : Number(holding.strikePrice);
+    payload.expiryDate = holding.expiryDate || null;
+  }
+
+  const result = await fetchJson(`${QUOTE_PROXY_URL.replace(/\/$/, "")}/quote/t1`, {
+    method: "POST",
+    timeoutMs: 30000,
+    body: payload,
+  });
+
+  const normalized = normalizeProxyQuoteResult(result, holding, requestDate);
+  if (!normalized.found) {
+    throw new Error(normalized.notes || `No quote returned for ${holding.symbol}`);
+  }
+
+  await storeQuoteInCache(holding, requestDate, normalized);
+  return {
+    ...normalized,
+    cacheHit: false,
+  };
+}
+
+async function resolveQuoteWithCache(holding, requestDate = getYesterdayDateString()) {
+  const cached = await getCachedQuote(holding, requestDate);
+  if (cached) {
+    return cached;
+  }
+
+  return fetchQuoteFromProxy(holding, requestDate);
 }
 
 async function createSession(userId) {
@@ -1043,11 +803,18 @@ async function authMiddleware(req, res, next) {
   }
 }
 
-async function refreshMarketPrices(userId) {
-  const [rows] = await pool.query(
-    "SELECT * FROM holdings WHERE user_id = ? ORDER BY updated_at DESC, created_at DESC",
-    [userId]
-  );
+async function refreshMarketPrices(userId, options = {}) {
+  const holdingId = options.holdingId ? String(options.holdingId) : "";
+  const force = Boolean(options.force);
+  const [rows] = holdingId
+    ? await pool.query(
+        "SELECT * FROM holdings WHERE user_id = ? AND id = ? ORDER BY updated_at DESC, created_at DESC",
+        [userId, holdingId]
+      )
+    : await pool.query(
+        "SELECT * FROM holdings WHERE user_id = ? ORDER BY updated_at DESC, created_at DESC",
+        [userId]
+      );
   const holdings = rows.map(mapRow);
   const warningSet = new Set();
   let updatedCount = 0;
@@ -1061,102 +828,26 @@ async function refreshMarketPrices(userId) {
     };
   }
 
-  const stockCache = new Map();
-  const cryptoCache = new Map();
-  const coinIdCache = new Map();
-  const binanceCache = new Map();
-  const cryptoExchangeCache = new Map();
-  const fxCache = new Map();
-  const optionCache = new Map();
-  const macroCache = new Map();
-
-  if (!EODHD_API_KEY) {
-    warningSet.add("未配置 EODHD_API_KEY，美股和部分汇率将继续使用数据库中的现有价格。");
-  }
-
   for (const holding of holdings) {
-    if (holding.lastPriceSyncDate === todayDate) {
+    if (!force && holding.lastPriceSyncDate === todayDate) {
       continue;
     }
 
     if (holding.assetType === "cash") {
-      try {
-        if (!MANUAL_FX_CURRENCIES.has(holding.currency) && EODHD_API_KEY) {
-          const fxRate = await fetchUsdFxRate(holding.currency, fxCache);
-          await pool.query(
-            "UPDATE holdings SET fx_rate = ?, last_price_sync_date = ?, last_price_sync_status = ?, last_price_sync_error = NULL WHERE id = ? AND user_id = ?",
-            [fxRate, todayDate, "synced", holding.id, userId]
-          );
-          updatedCount += 1;
-        } else if (!MANUAL_FX_CURRENCIES.has(holding.currency) && !EODHD_API_KEY) {
-          warningSet.add(`现金 ${holding.symbol} 汇率未更新：缺少 EODHD_API_KEY。`);
-        }
-      } catch (error) {
-        warningSet.add(`现金 ${holding.symbol} 汇率未更新：${error.message}`);
-      }
+      await pool.query(
+        "UPDATE holdings SET last_price_sync_date = ?, last_price_sync_status = ?, last_price_sync_error = NULL WHERE id = ? AND user_id = ?",
+        [todayDate, "synced", holding.id, userId]
+      );
       continue;
     }
 
     try {
-      let latestPrice = null;
-      let latestPriceQuoteCurrency = holding.currency;
-
-      if (holding.assetType === "stock") {
-        if (holding.market === "US" && !EODHD_API_KEY) {
-          warningSet.add(`${holding.symbol} 未更新：缺少 EODHD_API_KEY。`);
-          continue;
-        }
-        latestPrice = await fetchStockPrice(holding, stockCache);
-      } else if (holding.assetType === "crypto") {
-        try {
-          const ccxtQuote = await fetchCcxtCryptoPrice(holding.symbol, holding.currency, cryptoExchangeCache);
-          latestPrice = ccxtQuote.price;
-          latestPriceQuoteCurrency = ccxtQuote.quoteCurrency;
-        } catch (error) {
-          warningSet.add(`${holding.symbol} ccxt 未更新：${error.message}`);
-          const binanceQuote = await fetchBinanceT1Close(holding.symbol, holding.currency, binanceCache);
-          if (binanceQuote) {
-            latestPrice = binanceQuote.price;
-            latestPriceQuoteCurrency = binanceQuote.quoteCurrency;
-          } else {
-            latestPrice = await fetchCryptoPrice(holding, cryptoCache, coinIdCache);
-            latestPriceQuoteCurrency = holding.currency;
-          }
-        }
-      } else if (holding.assetType === "option") {
-        latestPrice = await fetchOptionPrice(holding, optionCache);
-      } else if (holding.assetType === "macro") {
-        latestPrice = await fetchMacroPrice(holding, macroCache);
-      }
-
-      if (latestPrice == null) continue;
-
-      let nextFxRate = holding.fxRate;
-
-      if (MANUAL_FX_CURRENCIES.has(holding.currency)) {
-        nextFxRate = 1;
-      } else {
-        try {
-          nextFxRate = await fetchUsdFxRate(holding.currency, fxCache);
-        } catch (error) {
-          warningSet.add(`${holding.symbol} 汇率未更新：${error.message}，已保留原汇率 ${holding.fxRate}`);
-        }
-      }
-
-      if (
-        holding.assetType === "crypto" &&
-        latestPrice != null &&
-        latestPriceQuoteCurrency !== holding.currency &&
-        MANUAL_FX_CURRENCIES.has(latestPriceQuoteCurrency) &&
-        !MANUAL_FX_CURRENCIES.has(holding.currency) &&
-        nextFxRate > 0
-      ) {
-        latestPrice = latestPrice / nextFxRate;
-      }
+      const quote = await resolveQuoteWithCache(holding);
+      const latestPrice = quote.currentPrice;
 
       await pool.query(
         "UPDATE holdings SET current_price = ?, fx_rate = ?, last_price_sync_date = ?, last_price_sync_status = ?, last_price_sync_error = NULL WHERE id = ? AND user_id = ?",
-        [latestPrice, nextFxRate, todayDate, "synced", holding.id, userId]
+        [latestPrice, holding.fxRate, todayDate, "synced", holding.id, userId]
       );
 
       updatedCount += 1;
@@ -1230,6 +921,295 @@ async function ensureSchema() {
     )
   `);
 
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS market_quotes (
+      cache_key VARCHAR(255) PRIMARY KEY,
+      request_date DATE NOT NULL,
+      asset_type VARCHAR(20) NOT NULL,
+      market VARCHAR(20) NOT NULL,
+      symbol VARCHAR(64) NOT NULL,
+      currency VARCHAR(10) NOT NULL,
+      underlying VARCHAR(64) NOT NULL DEFAULT '',
+      option_type VARCHAR(20) NOT NULL DEFAULT '',
+      strike_price DECIMAL(20,8) NOT NULL DEFAULT 0,
+      expiry_date DATE NULL,
+      current_price DECIMAL(20,8) NULL,
+      quote_currency VARCHAR(10) NULL,
+      price_date DATE NULL,
+      source VARCHAR(255) NULL,
+      fetched_at DATETIME NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      INDEX idx_market_quotes_request_date (request_date),
+      INDEX idx_market_quotes_asset_type (asset_type)
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS portfolios (
+      id VARCHAR(64) PRIMARY KEY,
+      user_id VARCHAR(64) NOT NULL,
+      name VARCHAR(120) NOT NULL,
+      base_currency VARCHAR(10) NOT NULL DEFAULT 'USD',
+      description TEXT NULL,
+      is_default TINYINT(1) NOT NULL DEFAULT 0,
+      status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      INDEX idx_portfolios_user_id (user_id),
+      INDEX idx_portfolios_status (status)
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS accounts (
+      id VARCHAR(64) PRIMARY KEY,
+      user_id VARCHAR(64) NOT NULL,
+      portfolio_id VARCHAR(64) NOT NULL,
+      name VARCHAR(120) NOT NULL,
+      platform VARCHAR(50) NOT NULL,
+      market_scope VARCHAR(50) NULL,
+      base_currency VARCHAR(10) NOT NULL DEFAULT 'USD',
+      external_account_ref VARCHAR(128) NULL,
+      status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
+      opened_at DATETIME NULL,
+      closed_at DATETIME NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      INDEX idx_accounts_user_id (user_id),
+      INDEX idx_accounts_portfolio_id (portfolio_id),
+      INDEX idx_accounts_platform (platform)
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS instruments (
+      id VARCHAR(64) PRIMARY KEY,
+      asset_type VARCHAR(20) NOT NULL,
+      market VARCHAR(20) NOT NULL,
+      symbol VARCHAR(64) NOT NULL,
+      display_symbol VARCHAR(128) NULL,
+      name VARCHAR(255) NOT NULL,
+      quote_currency VARCHAR(10) NOT NULL,
+      underlying_symbol VARCHAR(64) NULL,
+      option_type VARCHAR(20) NULL,
+      strike_price DECIMAL(20,8) NULL,
+      expiry_date DATE NULL,
+      contract_multiplier INT NOT NULL DEFAULT 1,
+      exchange_code VARCHAR(32) NULL,
+      yahoo_symbol VARCHAR(128) NULL,
+      is_active TINYINT(1) NOT NULL DEFAULT 1,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      UNIQUE KEY uniq_instruments_identity (
+        asset_type, market, symbol, quote_currency,
+        underlying_symbol, option_type, strike_price, expiry_date
+      ),
+      INDEX idx_instruments_symbol (symbol),
+      INDEX idx_instruments_market (market)
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS portfolio_transactions (
+      id VARCHAR(64) PRIMARY KEY,
+      user_id VARCHAR(64) NOT NULL,
+      portfolio_id VARCHAR(64) NOT NULL,
+      account_id VARCHAR(64) NOT NULL,
+      instrument_id VARCHAR(64) NULL,
+      holding_id VARCHAR(64) NULL,
+      transaction_type VARCHAR(40) NOT NULL,
+      side VARCHAR(20) NULL,
+      trade_date DATE NOT NULL,
+      settle_date DATE NULL,
+      quantity DECIMAL(20,8) NOT NULL DEFAULT 0,
+      unit_price DECIMAL(20,8) NOT NULL DEFAULT 0,
+      gross_amount DECIMAL(20,8) NOT NULL DEFAULT 0,
+      fee_amount DECIMAL(20,8) NOT NULL DEFAULT 0,
+      tax_amount DECIMAL(20,8) NOT NULL DEFAULT 0,
+      net_amount DECIMAL(20,8) NOT NULL DEFAULT 0,
+      trade_currency VARCHAR(10) NOT NULL,
+      fx_rate_to_usd DECIMAL(20,8) NOT NULL DEFAULT 1,
+      realized_pnl_amount DECIMAL(20,8) NOT NULL DEFAULT 0,
+      cost_basis_method VARCHAR(20) NOT NULL DEFAULT 'FIFO',
+      external_trade_id VARCHAR(128) NULL,
+      source_type VARCHAR(30) NOT NULL DEFAULT 'MANUAL',
+      source_ref VARCHAR(255) NULL,
+      notes TEXT NULL,
+      metadata_json JSON NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      INDEX idx_transactions_user_id (user_id),
+      INDEX idx_transactions_portfolio_id (portfolio_id),
+      INDEX idx_transactions_account_id (account_id),
+      INDEX idx_transactions_instrument_id (instrument_id),
+      INDEX idx_transactions_trade_date (trade_date),
+      INDEX idx_transactions_type (transaction_type)
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS position_lots (
+      id VARCHAR(64) PRIMARY KEY,
+      user_id VARCHAR(64) NOT NULL,
+      portfolio_id VARCHAR(64) NOT NULL,
+      account_id VARCHAR(64) NOT NULL,
+      instrument_id VARCHAR(64) NULL,
+      holding_id VARCHAR(64) NULL,
+      open_transaction_id VARCHAR(64) NOT NULL,
+      open_date DATE NOT NULL,
+      lot_side VARCHAR(20) NOT NULL DEFAULT 'LONG',
+      original_quantity DECIMAL(20,8) NOT NULL,
+      remaining_quantity DECIMAL(20,8) NOT NULL,
+      open_unit_price DECIMAL(20,8) NOT NULL,
+      open_fx_rate_to_usd DECIMAL(20,8) NOT NULL DEFAULT 1,
+      trade_currency VARCHAR(10) NOT NULL,
+      status VARCHAR(20) NOT NULL DEFAULT 'OPEN',
+      closed_at DATETIME NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      INDEX idx_lots_user_id (user_id),
+      INDEX idx_lots_portfolio_id (portfolio_id),
+      INDEX idx_lots_account_id (account_id),
+      INDEX idx_lots_instrument_id (instrument_id),
+      INDEX idx_lots_status (status)
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS realized_pnl_ledger (
+      id VARCHAR(64) PRIMARY KEY,
+      user_id VARCHAR(64) NOT NULL,
+      portfolio_id VARCHAR(64) NOT NULL,
+      account_id VARCHAR(64) NOT NULL,
+      instrument_id VARCHAR(64) NULL,
+      holding_id VARCHAR(64) NULL,
+      open_transaction_id VARCHAR(64) NULL,
+      close_transaction_id VARCHAR(64) NOT NULL,
+      lot_id VARCHAR(64) NULL,
+      recognized_date DATE NOT NULL,
+      quantity_closed DECIMAL(20,8) NOT NULL DEFAULT 0,
+      proceeds_amount DECIMAL(20,8) NOT NULL DEFAULT 0,
+      cost_amount DECIMAL(20,8) NOT NULL DEFAULT 0,
+      fee_amount DECIMAL(20,8) NOT NULL DEFAULT 0,
+      tax_amount DECIMAL(20,8) NOT NULL DEFAULT 0,
+      realized_pnl_amount DECIMAL(20,8) NOT NULL DEFAULT 0,
+      realized_pnl_usd DECIMAL(20,8) NOT NULL DEFAULT 0,
+      trade_currency VARCHAR(10) NOT NULL,
+      notes TEXT NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_realized_user_id (user_id),
+      INDEX idx_realized_portfolio_id (portfolio_id),
+      INDEX idx_realized_account_id (account_id),
+      INDEX idx_realized_instrument_id (instrument_id),
+      INDEX idx_realized_date (recognized_date)
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS price_snapshots (
+      id VARCHAR(64) PRIMARY KEY,
+      instrument_id VARCHAR(64) NULL,
+      asset_type VARCHAR(20) NOT NULL,
+      market VARCHAR(20) NOT NULL,
+      symbol VARCHAR(64) NOT NULL,
+      quote_currency VARCHAR(10) NOT NULL,
+      snapshot_date DATE NOT NULL,
+      close_price DECIMAL(20,8) NOT NULL,
+      adjusted_close_price DECIMAL(20,8) NULL,
+      source VARCHAR(255) NOT NULL,
+      source_ref VARCHAR(255) NULL,
+      fetched_at DATETIME NOT NULL,
+      metadata_json JSON NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uniq_price_snapshots (symbol, market, quote_currency, snapshot_date, source),
+      INDEX idx_price_snapshots_instrument_id (instrument_id),
+      INDEX idx_price_snapshots_date (snapshot_date)
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS fx_snapshots (
+      id VARCHAR(64) PRIMARY KEY,
+      base_currency VARCHAR(10) NOT NULL,
+      quote_currency VARCHAR(10) NOT NULL,
+      snapshot_date DATE NOT NULL,
+      close_rate DECIMAL(20,8) NOT NULL,
+      source VARCHAR(255) NOT NULL,
+      fetched_at DATETIME NOT NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uniq_fx_snapshots (base_currency, quote_currency, snapshot_date, source),
+      INDEX idx_fx_snapshots_date (snapshot_date)
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS nav_snapshots (
+      id VARCHAR(64) PRIMARY KEY,
+      user_id VARCHAR(64) NOT NULL,
+      portfolio_id VARCHAR(64) NOT NULL,
+      snapshot_date DATE NOT NULL,
+      nav_usd DECIMAL(20,8) NOT NULL DEFAULT 0,
+      cash_usd DECIMAL(20,8) NOT NULL DEFAULT 0,
+      market_value_usd DECIMAL(20,8) NOT NULL DEFAULT 0,
+      unrealized_pnl_usd DECIMAL(20,8) NOT NULL DEFAULT 0,
+      realized_pnl_usd DECIMAL(20,8) NOT NULL DEFAULT 0,
+      total_pnl_usd DECIMAL(20,8) NOT NULL DEFAULT 0,
+      deposit_flow_usd DECIMAL(20,8) NOT NULL DEFAULT 0,
+      withdrawal_flow_usd DECIMAL(20,8) NOT NULL DEFAULT 0,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uniq_nav_snapshots (portfolio_id, snapshot_date),
+      INDEX idx_nav_user_id (user_id),
+      INDEX idx_nav_date (snapshot_date)
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS corporate_actions (
+      id VARCHAR(64) PRIMARY KEY,
+      instrument_id VARCHAR(64) NULL,
+      market VARCHAR(20) NOT NULL,
+      symbol VARCHAR(64) NOT NULL,
+      action_type VARCHAR(40) NOT NULL,
+      ex_date DATE NOT NULL,
+      payable_date DATE NULL,
+      record_date DATE NULL,
+      ratio_from DECIMAL(20,8) NULL,
+      ratio_to DECIMAL(20,8) NULL,
+      cash_amount DECIMAL(20,8) NULL,
+      currency VARCHAR(10) NULL,
+      source VARCHAR(255) NULL,
+      notes TEXT NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_corporate_actions_symbol (symbol, market),
+      INDEX idx_corporate_actions_ex_date (ex_date)
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS sync_logs (
+      id VARCHAR(64) PRIMARY KEY,
+      user_id VARCHAR(64) NULL,
+      portfolio_id VARCHAR(64) NULL,
+      account_id VARCHAR(64) NULL,
+      instrument_id VARCHAR(64) NULL,
+      holding_id VARCHAR(64) NULL,
+      sync_type VARCHAR(40) NOT NULL,
+      status VARCHAR(20) NOT NULL,
+      target_ref VARCHAR(255) NULL,
+      source VARCHAR(255) NULL,
+      message TEXT NULL,
+      metadata_json JSON NULL,
+      started_at DATETIME NOT NULL,
+      finished_at DATETIME NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_sync_logs_user_id (user_id),
+      INDEX idx_sync_logs_status (status),
+      INDEX idx_sync_logs_type (sync_type),
+      INDEX idx_sync_logs_started_at (started_at)
+    )
+  `);
+
   const [userIdColumns] = await pool.query(
     `SELECT COUNT(*) AS count
      FROM information_schema.COLUMNS
@@ -1272,6 +1252,127 @@ async function ensureSchema() {
 
   if (Number(lastPriceSyncErrorColumns[0]?.count || 0) === 0) {
     await pool.query("ALTER TABLE holdings ADD COLUMN last_price_sync_error VARCHAR(500) NULL");
+  }
+
+  const [portfolioIdColumns] = await pool.query(
+    `SELECT COUNT(*) AS count
+     FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'holdings' AND COLUMN_NAME = 'portfolio_id'`,
+    [DB_NAME]
+  );
+
+  if (Number(portfolioIdColumns[0]?.count || 0) === 0) {
+    await pool.query("ALTER TABLE holdings ADD COLUMN portfolio_id VARCHAR(64) NULL AFTER user_id");
+  }
+
+  const [accountIdColumns] = await pool.query(
+    `SELECT COUNT(*) AS count
+     FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'holdings' AND COLUMN_NAME = 'account_id'`,
+    [DB_NAME]
+  );
+
+  if (Number(accountIdColumns[0]?.count || 0) === 0) {
+    await pool.query("ALTER TABLE holdings ADD COLUMN account_id VARCHAR(64) NULL AFTER portfolio_id");
+  }
+
+  const [instrumentIdColumns] = await pool.query(
+    `SELECT COUNT(*) AS count
+     FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'holdings' AND COLUMN_NAME = 'instrument_id'`,
+    [DB_NAME]
+  );
+
+  if (Number(instrumentIdColumns[0]?.count || 0) === 0) {
+    await pool.query("ALTER TABLE holdings ADD COLUMN instrument_id VARCHAR(64) NULL AFTER account_id");
+  }
+
+  const [statusColumns] = await pool.query(
+    `SELECT COUNT(*) AS count
+     FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'holdings' AND COLUMN_NAME = 'status'`,
+    [DB_NAME]
+  );
+
+  if (Number(statusColumns[0]?.count || 0) === 0) {
+    await pool.query("ALTER TABLE holdings ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'OPEN' AFTER contract_multiplier");
+  }
+
+  const [openedAtColumns] = await pool.query(
+    `SELECT COUNT(*) AS count
+     FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'holdings' AND COLUMN_NAME = 'opened_at'`,
+    [DB_NAME]
+  );
+
+  if (Number(openedAtColumns[0]?.count || 0) === 0) {
+    await pool.query("ALTER TABLE holdings ADD COLUMN opened_at DATETIME NULL AFTER status");
+  }
+
+  const [closedAtColumns] = await pool.query(
+    `SELECT COUNT(*) AS count
+     FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'holdings' AND COLUMN_NAME = 'closed_at'`,
+    [DB_NAME]
+  );
+
+  if (Number(closedAtColumns[0]?.count || 0) === 0) {
+    await pool.query("ALTER TABLE holdings ADD COLUMN closed_at DATETIME NULL AFTER opened_at");
+  }
+
+  const [bookCostTotalColumns] = await pool.query(
+    `SELECT COUNT(*) AS count
+     FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'holdings' AND COLUMN_NAME = 'book_cost_total'`,
+    [DB_NAME]
+  );
+
+  if (Number(bookCostTotalColumns[0]?.count || 0) === 0) {
+    await pool.query("ALTER TABLE holdings ADD COLUMN book_cost_total DECIMAL(20,8) NOT NULL DEFAULT 0 AFTER closed_at");
+  }
+
+  const [realizedPnlTotalColumns] = await pool.query(
+    `SELECT COUNT(*) AS count
+     FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'holdings' AND COLUMN_NAME = 'realized_pnl_total'`,
+    [DB_NAME]
+  );
+
+  if (Number(realizedPnlTotalColumns[0]?.count || 0) === 0) {
+    await pool.query("ALTER TABLE holdings ADD COLUMN realized_pnl_total DECIMAL(20,8) NOT NULL DEFAULT 0 AFTER book_cost_total");
+  }
+
+  const [holdingPortfolioIndexes] = await pool.query(
+    `SELECT COUNT(*) AS count
+     FROM information_schema.STATISTICS
+     WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'holdings' AND INDEX_NAME = 'idx_holdings_portfolio_id'`,
+    [DB_NAME]
+  );
+
+  if (Number(holdingPortfolioIndexes[0]?.count || 0) === 0) {
+    await pool.query("CREATE INDEX idx_holdings_portfolio_id ON holdings (portfolio_id)");
+  }
+
+  const [holdingAccountIndexes] = await pool.query(
+    `SELECT COUNT(*) AS count
+     FROM information_schema.STATISTICS
+     WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'holdings' AND INDEX_NAME = 'idx_holdings_account_id'`,
+    [DB_NAME]
+  );
+
+  if (Number(holdingAccountIndexes[0]?.count || 0) === 0) {
+    await pool.query("CREATE INDEX idx_holdings_account_id ON holdings (account_id)");
+  }
+
+  const [holdingInstrumentIndexes] = await pool.query(
+    `SELECT COUNT(*) AS count
+     FROM information_schema.STATISTICS
+     WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'holdings' AND INDEX_NAME = 'idx_holdings_instrument_id'`,
+    [DB_NAME]
+  );
+
+  if (Number(holdingInstrumentIndexes[0]?.count || 0) === 0) {
+    await pool.query("CREATE INDEX idx_holdings_instrument_id ON holdings (instrument_id)");
   }
 
   const [holdingIndexes] = await pool.query(
@@ -1323,6 +1424,7 @@ async function ensureSchema() {
     }
   }
 
+  await backfillLedgerReferences();
   await pool.query("DELETE FROM sessions WHERE expires_at <= NOW()");
 }
 
@@ -1449,10 +1551,10 @@ app.get("/api/health", async (_req, res) => {
 });
 
 app.get("/api/config/public", (_req, res) => {
-  const inviteRequired = true;
+  const inviteRequired = false;
   res.json({
     inviteRequired,
-    bootstrapInviteEnabled: Boolean(INVITE_CODE),
+    bootstrapInviteEnabled: false,
     host: HOST,
     port: PORT,
     lanAddresses: getLanAddresses(),
@@ -1467,7 +1569,6 @@ app.get("/api/auth/session", requireDatabase, async (req, res) => {
 async function registerOrLogin(req, res, { allowAutoLogin = false } = {}) {
   const username = normalizeUsername(req.body.username);
   const password = String(req.body.password || "");
-  const inviteCode = String(req.body.inviteCode || "").trim();
 
   if (!username || password.length < 6) {
     return res.status(400).json({ error: "用户名不能为空，密码至少 6 位。" });
@@ -1492,26 +1593,6 @@ async function registerOrLogin(req, res, { allowAutoLogin = false } = {}) {
   const isFirstUser = Number(countRows[0]?.count || 0) === 0;
 
   let inviterUserId = null;
-  const usingBootstrapInvite = Boolean(INVITE_CODE) && inviteCode === INVITE_CODE;
-
-  if (isFirstUser) {
-    if (INVITE_CODE && !usingBootstrapInvite) {
-      return res.status(403).json({ error: "首个账户注册需要填写配置中的邀请码。" });
-    }
-  } else {
-    if (usingBootstrapInvite) {
-      inviterUserId = null;
-    } else {
-      const [inviterRows] = await pool.query(
-        "SELECT id FROM users WHERE invite_code = ? LIMIT 1",
-        [inviteCode]
-      );
-      inviterUserId = inviterRows[0]?.id || null;
-      if (!inviterUserId) {
-        return res.status(403).json({ error: "邀请码不正确。" });
-      }
-    }
-  }
 
   try {
     const userId = createId();
@@ -1608,6 +1689,43 @@ app.post("/api/prices/refresh", requireDatabase, authMiddleware, async (req, res
     });
   } catch (error) {
     res.status(500).json({ error: error.message || "Price refresh failed" });
+  }
+});
+
+app.post("/api/prices/refresh/:id", requireDatabase, authMiddleware, async (req, res) => {
+  try {
+    const result = await refreshMarketPrices(req.user.id, { holdingId: req.params.id, force: true });
+    const [rows] = await pool.query(
+      "SELECT * FROM holdings WHERE user_id = ? ORDER BY updated_at DESC, created_at DESC",
+      [req.user.id]
+    );
+    res.json({
+      ...result,
+      holdings: rows.map(mapRow),
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message || "Single holding price refresh failed" });
+  }
+});
+
+app.post("/api/prices/lookup", requireDatabase, authMiddleware, async (req, res) => {
+  try {
+    const holding = normalizeHolding({
+      ...req.body,
+      name: String(req.body?.name || req.body?.symbol || "").trim(),
+    });
+    const result = await resolveQuoteWithCache(holding);
+    res.json({
+      found: result.found,
+      currentPrice: result.currentPrice,
+      quoteCurrency: result.quoteCurrency,
+      priceDate: result.priceDate,
+      source: result.source,
+      cacheHit: Boolean(result.cacheHit),
+      notes: result.notes || "",
+    });
+  } catch (error) {
+    res.status(400).json({ error: error.message || "Price lookup failed" });
   }
 });
 

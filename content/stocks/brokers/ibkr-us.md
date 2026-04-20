@@ -205,7 +205,15 @@ IBKR 最大的特点不是“开户简单”，而是：
 - **如果中国身份证上的地址和申请填写地址一致，可以不再单独提交住址证明**
 - **如果地址不一致，再按官方清单补交住址证明**
 
-## 十、官方来源
+## 十、邀请链接
+
+如需使用邀请链接，可通过以下地址进入：
+
+- [https://ibkr.com/referral/hao434](https://ibkr.com/referral/hao434)
+
+如当期有邀请活动或奖励，以 IBKR 实际开户链接和提交页面显示为准。
+
+## 十一、官方来源
 
 - IBKR 新账户页面  
   [https://www.interactivebrokers.com/cn/accounts/newAccounts.php](https://www.interactivebrokers.com/cn/accounts/newAccounts.php)
