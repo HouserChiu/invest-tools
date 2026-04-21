@@ -52,6 +52,86 @@
           ]
         }
       ]
+    },
+    "portfolio-transactions": {
+      "template": "portfolio",
+      "pageKey": "portfolio-transactions",
+      "title": "交易流水",
+      "breadcrumb": [
+        { "label": "首页", "href": "/" },
+        { "label": "持仓工具", "href": "/portfolio" },
+        { "label": "交易流水" }
+      ],
+      "hero": {
+        "eyebrow": "Ledger Timeline",
+        "title": "按时间复盘每一笔交易和现金流",
+        "description": "这里聚焦交易流水本身。你可以按交易类型、平台、资产类型和关键词筛选，快速回看每一次开仓、加仓、减仓、清仓，以及对应现金流变化。",
+        "tag": "Transaction review",
+        "panelTitle": "从结果回到过程",
+        "panelBody": "相比持仓总览页，这里更像账本和审计台，用来追溯每一笔操作是怎么发生的。",
+        "badges": ["交易流水", "现金流", "已实现盈亏", "复盘"]
+      },
+      "sections": []
+    },
+    "portfolio-history": {
+      "template": "portfolio",
+      "pageKey": "portfolio-history",
+      "title": "历史已清仓",
+      "breadcrumb": [
+        { "label": "首页", "href": "/" },
+        { "label": "持仓工具", "href": "/portfolio" },
+        { "label": "历史已清仓" }
+      ],
+      "hero": {
+        "eyebrow": "Closed Positions",
+        "title": "把已经结束的仓位单独归档出来",
+        "description": "这里专门用来复盘已经清仓的标的。你可以按平台、资产类型和关键词筛选，回看每一笔交易最终赚了多少、什么时候结束、属于哪一个平台。",
+        "tag": "History review",
+        "panelTitle": "从在持仓中剥离",
+        "panelBody": "当前持仓看未来，已清仓仓位看过去。把它们拆开后，复盘会清楚很多。",
+        "badges": ["已清仓", "历史仓位", "已实现盈亏", "复盘"]
+      },
+      "sections": []
+    },
+    "portfolio-realized-pnl": {
+      "template": "portfolio",
+      "pageKey": "portfolio-realized-pnl",
+      "title": "已实现盈亏",
+      "breadcrumb": [
+        { "label": "首页", "href": "/" },
+        { "label": "持仓工具", "href": "/portfolio" },
+        { "label": "已实现盈亏" }
+      ],
+      "hero": {
+        "eyebrow": "Realized P&L",
+        "title": "把已经落袋的盈亏单独拉出来看",
+        "description": "这里聚焦已经实现的收益和亏损，按日期、平台、标的和数量查看每一笔真正完成结算的结果。",
+        "tag": "PnL ledger",
+        "panelTitle": "和浮盈浮亏分开看",
+        "panelBody": "浮动盈亏属于当前持仓，已实现盈亏属于你的交易结果。这一页就是专门看结果的。",
+        "badges": ["已实现盈亏", "结算结果", "复盘", "交易结果"]
+      },
+      "sections": []
+    },
+    "portfolio-review": {
+      "template": "portfolio",
+      "pageKey": "portfolio-review",
+      "title": "组合净值与复盘指标",
+      "breadcrumb": [
+        { "label": "首页", "href": "/" },
+        { "label": "持仓工具", "href": "/portfolio" },
+        { "label": "组合净值与复盘指标" }
+      ],
+      "hero": {
+        "eyebrow": "Portfolio Review",
+        "title": "从当前净值回看到真实交易结果",
+        "description": "这里聚焦组合净值、已实现与未实现盈亏、胜率、最佳交易和最差交易等复盘指标。净值快照从今天开始持续沉淀，后面会越来越有价值。",
+        "tag": "Review dashboard",
+        "panelTitle": "先把可验证的指标做实",
+        "panelBody": "这不是一张花哨曲线页，而是一个真正依赖账本和快照的复盘入口。",
+        "badges": ["净值", "胜率", "已实现盈亏", "复盘指标"]
+      },
+      "sections": []
     }
   }
 }

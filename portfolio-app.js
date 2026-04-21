@@ -179,11 +179,16 @@ const userBadge = document.querySelector("#user-badge");
 const authStatus = document.querySelector("#auth-status");
 const cancelEditBtn = document.querySelector("#cancel-edit-btn");
 const refreshPricesBtn = document.querySelector("#refresh-prices-btn");
+const refreshPricesBtnInline = document.querySelector("#refresh-prices-btn-inline");
 const lookupPriceBtn = document.querySelector("#lookup-price-btn");
 const loadSampleBtn = document.querySelector("#load-sample-btn");
+const loadSampleBtnInline = document.querySelector("#load-sample-btn-inline");
 const resetBtn = document.querySelector("#reset-btn");
+const resetBtnInline = document.querySelector("#reset-btn-inline");
 const exportBtn = document.querySelector("#export-btn");
+const exportBtnInline = document.querySelector("#export-btn-inline");
 const importFileInput = document.querySelector("#import-file");
+const importFileInputInline = document.querySelector("#import-file-inline");
 const holdingsTableBody = document.querySelector("#holdings-table-body");
 const assetAllocation = document.querySelector("#asset-allocation");
 const platformAllocation = document.querySelector("#platform-allocation");
@@ -192,6 +197,16 @@ const allocationTemplate = document.querySelector("#allocation-item-template");
 const syncStatus = document.querySelector("#sync-status");
 const priceLookupStatus = document.querySelector("#price-lookup-status");
 const priceLookupSource = document.querySelector("#price-lookup-source");
+const transactionsTableBody = document.querySelector("#transactions-table-body");
+const closedHoldingsTableBody = document.querySelector("#closed-holdings-table-body");
+const realizedPnlTableBody = document.querySelector("#realized-pnl-table-body");
+const navSeriesTableBody = document.querySelector("#nav-series-table-body");
+const reviewMetricsList = document.querySelector("#review-metrics-list");
+const reviewTotalNav = document.querySelector("#review-total-nav");
+const reviewRealizedPnl = document.querySelector("#review-realized-pnl");
+const reviewUnrealizedPnl = document.querySelector("#review-unrealized-pnl");
+const reviewCash = document.querySelector("#review-cash");
+const reviewWinRate = document.querySelector("#review-win-rate");
 const filterAssetType = document.querySelector("#filter-asset-type");
 const filterPlatform = document.querySelector("#filter-platform");
 const filterMarket = document.querySelector("#filter-market");
@@ -199,8 +214,41 @@ const sortCost = document.querySelector("#sort-cost");
 const sortMarketValue = document.querySelector("#sort-market-value");
 const sortPnl = document.querySelector("#sort-pnl");
 const sortAllocation = document.querySelector("#sort-allocation");
+const txFilterType = document.querySelector("#tx-filter-type");
+const txFilterAssetType = document.querySelector("#tx-filter-asset-type");
+const txFilterPlatform = document.querySelector("#tx-filter-platform");
+const txSearch = document.querySelector("#tx-search");
+const closedFilterAssetType = document.querySelector("#closed-filter-asset-type");
+const closedFilterPlatform = document.querySelector("#closed-filter-platform");
+const closedSearch = document.querySelector("#closed-search");
+const rpFilterAssetType = document.querySelector("#rp-filter-asset-type");
+const rpFilterPlatform = document.querySelector("#rp-filter-platform");
+const rpSearch = document.querySelector("#rp-search");
 const authUsername = document.querySelector("#auth-username");
 const authPassword = document.querySelector("#auth-password");
+const openHoldingModalBtn = document.querySelector("#open-holding-modal-btn");
+const holdingModal = document.querySelector("#holding-modal");
+const holdingModalBackdrop = document.querySelector("#holding-modal-backdrop");
+const holdingModalTitle = document.querySelector("#holding-modal-title");
+const holdingModalSubtitle = document.querySelector("#holding-modal-subtitle");
+const holdingSubmitBtn = document.querySelector("#holding-submit-btn");
+const tradeModal = document.querySelector("#trade-modal");
+const tradeModalBackdrop = document.querySelector("#trade-modal-backdrop");
+const tradeForm = document.querySelector("#trade-form");
+const tradeActionLabel = document.querySelector("#trade-action-label");
+const tradeSymbol = document.querySelector("#trade-symbol");
+const tradeQuantityField = document.querySelector("#trade-quantity-field");
+const tradeQuantityLabel = document.querySelector("#trade-quantity-label");
+const tradeQuantityInput = document.querySelector("#trade-quantity");
+const tradeUnitPriceLabel = document.querySelector("#trade-unit-price-label");
+const tradeUnitPriceInput = document.querySelector("#trade-unit-price");
+const tradeDateInput = document.querySelector("#trade-date");
+const tradeFeeInput = document.querySelector("#trade-fee");
+const tradeTaxInput = document.querySelector("#trade-tax");
+const tradeNotesInput = document.querySelector("#trade-notes");
+const tradeFormStatus = document.querySelector("#trade-form-status");
+const tradeSubmitBtn = document.querySelector("#trade-submit-btn");
+const tradeCancelBtn = document.querySelector("#trade-cancel-btn");
 
 const fields = {
   id: document.querySelector("#holding-id"),
@@ -235,6 +283,10 @@ const costPriceField = document.querySelector("#cost-price-field");
 const currentPriceField = document.querySelector("#current-price-field");
 
 let holdings = [];
+let transactions = [];
+let realizedPnlEntries = [];
+let reviewMetrics = null;
+let navSeries = [];
 let currentUser = null;
 let publicConfig = null;
 const activeFilters = {
@@ -245,6 +297,25 @@ const activeFilters = {
 let activeSort = "marketValueDesc";
 let priceLookupTimer = null;
 let priceLookupRequestId = 0;
+let activeTradeHoldingId = null;
+let activeTradeAction = null;
+let activeHoldingMode = "create";
+const activeTransactionFilters = {
+  transactionType: "",
+  assetType: "",
+  platform: "",
+  query: "",
+};
+const activeClosedFilters = {
+  assetType: "",
+  platform: "",
+  query: "",
+};
+const activeRealizedPnlFilters = {
+  assetType: "",
+  platform: "",
+  query: "",
+};
 
 function toNumber(value) {
   return Number.parseFloat(value) || 0;
@@ -268,6 +339,34 @@ function formatPercent(value) {
   return `${value >= 0 ? "" : "-"}${Math.abs(value).toFixed(2)}%`;
 }
 
+function formatShanghaiDateParts(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Shanghai",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const parts = formatter.formatToParts(date);
+  const year = parts.find((part) => part.type === "year")?.value;
+  const month = parts.find((part) => part.type === "month")?.value;
+  const day = parts.find((part) => part.type === "day")?.value;
+
+  if (!year || !month || !day) return null;
+  return `${year}-${month}-${day}`;
+}
+
+function formatDate(value) {
+  return formatShanghaiDateParts(value) || (value ? String(value).slice(0, 10) : "-");
+}
+
+function getTodayInShanghai() {
+  return formatShanghaiDateParts(new Date()) || new Date().toISOString().slice(0, 10);
+}
+
 function getAssetTypeLabel(value) {
   return value === "stock"
     ? "股票"
@@ -281,6 +380,10 @@ function getAssetTypeLabel(value) {
 }
 
 function getSyncBadge(holding) {
+  if (holding.status === "CLOSED") {
+    return `<span class="chip">已清仓</span>`;
+  }
+
   if (holding.lastPriceSyncStatus === "synced" && holding.lastPriceSyncDate) {
     return `<span class="chip chip-sync-success">已同步 ${holding.lastPriceSyncDate}</span>`;
   }
@@ -455,10 +558,102 @@ function renderFilterGroup(container, values, selectedValue, formatter = (value)
     .join("")}`;
 }
 
+function getTransactionTypeLabel(value) {
+  return value === "OPENING_BALANCE"
+    ? "初始持仓"
+    : value === "SNAPSHOT_ADJUSTMENT"
+      ? "快照调整"
+      : value === "ADD_POSITION"
+        ? "加仓"
+        : value === "REDUCE_POSITION"
+          ? "减仓"
+          : value === "CLOSE_POSITION"
+            ? "清仓"
+            : value === "CASH_INFLOW"
+              ? "现金流入"
+              : value === "CASH_OUTFLOW"
+                ? "现金流出"
+                : value;
+}
+
 function renderFilters() {
   renderFilterGroup(filterAssetType, holdings.map((holding) => holding.assetType), activeFilters.assetType, getAssetTypeLabel);
   renderFilterGroup(filterPlatform, holdings.map((holding) => holding.platform), activeFilters.platform);
   renderFilterGroup(filterMarket, holdings.map((holding) => holding.market), activeFilters.market);
+}
+
+function getFilteredTransactions(source = transactions) {
+  const keyword = activeTransactionFilters.query.trim().toLowerCase();
+  return source.filter((transaction) => {
+    if (activeTransactionFilters.transactionType && activeTransactionFilters.transactionType !== transaction.transactionType) return false;
+    if (activeTransactionFilters.assetType && activeTransactionFilters.assetType !== transaction.assetType) return false;
+    if (activeTransactionFilters.platform && activeTransactionFilters.platform !== transaction.platform) return false;
+    if (keyword) {
+      const haystack = [
+        transaction.symbol,
+        transaction.name,
+        transaction.notes,
+        transaction.accountName,
+      ]
+        .join(" ")
+        .toLowerCase();
+      if (!haystack.includes(keyword)) return false;
+    }
+    return true;
+  });
+}
+
+function renderTransactionFilters() {
+  renderFilterGroup(txFilterType, transactions.map((transaction) => transaction.transactionType), activeTransactionFilters.transactionType, getTransactionTypeLabel);
+  renderFilterGroup(txFilterAssetType, transactions.map((transaction) => transaction.assetType), activeTransactionFilters.assetType, getAssetTypeLabel);
+  renderFilterGroup(txFilterPlatform, transactions.map((transaction) => transaction.platform), activeTransactionFilters.platform);
+  if (txSearch) {
+    txSearch.value = activeTransactionFilters.query;
+  }
+}
+
+function getFilteredClosedHoldings(source = holdings) {
+  const keyword = activeClosedFilters.query.trim().toLowerCase();
+  return source.filter((holding) => {
+    if (holding.status !== "CLOSED") return false;
+    if (activeClosedFilters.assetType && activeClosedFilters.assetType !== holding.assetType) return false;
+    if (activeClosedFilters.platform && activeClosedFilters.platform !== holding.platform) return false;
+    if (keyword) {
+      const haystack = [holding.symbol, holding.name, holding.notes].join(" ").toLowerCase();
+      if (!haystack.includes(keyword)) return false;
+    }
+    return true;
+  });
+}
+
+function renderClosedHoldingFilters() {
+  const closedHoldings = holdings.filter((holding) => holding.status === "CLOSED");
+  renderFilterGroup(closedFilterAssetType, closedHoldings.map((holding) => holding.assetType), activeClosedFilters.assetType, getAssetTypeLabel);
+  renderFilterGroup(closedFilterPlatform, closedHoldings.map((holding) => holding.platform), activeClosedFilters.platform);
+  if (closedSearch) {
+    closedSearch.value = activeClosedFilters.query;
+  }
+}
+
+function getFilteredRealizedPnl(source = realizedPnlEntries) {
+  const keyword = activeRealizedPnlFilters.query.trim().toLowerCase();
+  return source.filter((entry) => {
+    if (activeRealizedPnlFilters.assetType && activeRealizedPnlFilters.assetType !== entry.assetType) return false;
+    if (activeRealizedPnlFilters.platform && activeRealizedPnlFilters.platform !== entry.platform) return false;
+    if (keyword) {
+      const haystack = [entry.symbol, entry.name, entry.notes, entry.accountName].join(" ").toLowerCase();
+      if (!haystack.includes(keyword)) return false;
+    }
+    return true;
+  });
+}
+
+function renderRealizedPnlFilters() {
+  renderFilterGroup(rpFilterAssetType, realizedPnlEntries.map((entry) => entry.assetType), activeRealizedPnlFilters.assetType, getAssetTypeLabel);
+  renderFilterGroup(rpFilterPlatform, realizedPnlEntries.map((entry) => entry.platform), activeRealizedPnlFilters.platform);
+  if (rpSearch) {
+    rpSearch.value = activeRealizedPnlFilters.query;
+  }
 }
 
 function renderTable(summary) {
@@ -552,7 +747,10 @@ function renderTable(summary) {
           <td>${allocation.toFixed(2)}%</td>
           <td>
             <div class="table-actions">
-              <button class="inline-button" data-action="refresh-price" data-id="${holding.id}">刷新行情</button>
+              ${holding.status !== "CLOSED" ? `<button class="inline-button" data-action="add-position" data-id="${holding.id}">加仓</button>` : ""}
+              ${holding.status !== "CLOSED" && holding.assetType !== "cash" ? `<button class="inline-button" data-action="reduce-position" data-id="${holding.id}">减仓</button>` : ""}
+              ${holding.status !== "CLOSED" ? `<button class="inline-button" data-action="close-position" data-id="${holding.id}">清仓</button>` : ""}
+              <button class="inline-button" data-action="refresh-price" data-id="${holding.id}">刷新</button>
               <button class="inline-button" data-action="edit" data-id="${holding.id}">编辑</button>
               <button class="inline-button delete" data-action="delete" data-id="${holding.id}">删除</button>
             </div>
@@ -564,6 +762,201 @@ function renderTable(summary) {
   holdingsTableBody.innerHTML = rows.join("");
 }
 
+function renderTransactionsTable() {
+  renderTransactionFilters();
+  const rows = getFilteredTransactions();
+
+  if (!rows.length) {
+    transactionsTableBody.innerHTML = `
+      <tr>
+        <td colspan="10" class="empty-row">还没有交易流水，先做一次加仓、减仓或清仓后，这里就会开始累积记录。</td>
+      </tr>
+    `;
+    return;
+  }
+
+  transactionsTableBody.innerHTML = rows
+    .map((transaction) => `
+      <tr>
+        <td>${formatDate(transaction.tradeDate)}</td>
+        <td><span class="chip">${getTransactionTypeLabel(transaction.transactionType)}</span></td>
+        <td>
+          <div class="asset-meta">
+            <strong>${transaction.symbol || "-"}</strong>
+            <span class="muted">${transaction.name || ""}</span>
+            <div class="chip-row">
+              ${transaction.assetType ? `<span class="chip">${getAssetTypeLabel(transaction.assetType)}</span>` : ""}
+              ${transaction.accountName ? `<span class="chip">${transaction.accountName}</span>` : ""}
+            </div>
+          </div>
+        </td>
+        <td>${transaction.platform || "-"}</td>
+        <td>${transaction.notes ? escapeHtml(transaction.notes) : "-"}</td>
+        <td>${transaction.quantity || 0}</td>
+        <td>${transaction.unitPrice ? `${transaction.unitPrice} ${transaction.tradeCurrency}` : `0 ${transaction.tradeCurrency || ""}`}</td>
+        <td class="${transaction.netAmount >= 0 ? "gain" : "loss"}">${transaction.tradeCurrency ? `${transaction.netAmount.toFixed(2)} ${transaction.tradeCurrency}` : transaction.netAmount.toFixed(2)}</td>
+        <td class="${transaction.realizedPnlAmount >= 0 ? "gain" : "loss"}">${formatMoney(transaction.realizedPnlAmount || 0)}</td>
+        <td>${transaction.sourceRef || "-"}</td>
+      </tr>
+    `)
+    .join("");
+}
+
+function renderClosedHoldingsTable() {
+  renderClosedHoldingFilters();
+
+  if (!closedHoldingsTableBody) return;
+  const rows = getFilteredClosedHoldings();
+
+  if (!rows.length) {
+    closedHoldingsTableBody.innerHTML = `
+      <tr>
+        <td colspan="7" class="empty-row">还没有已清仓仓位，完成一次清仓后这里会自动归档。</td>
+      </tr>
+    `;
+    return;
+  }
+
+  closedHoldingsTableBody.innerHTML = rows
+    .sort((a, b) => String(b.closedAt || "").localeCompare(String(a.closedAt || "")))
+    .map((holding) => `
+      <tr>
+        <td>${formatDate(holding.closedAt)}</td>
+        <td>
+          <div class="asset-meta">
+            <strong>${holding.symbol}</strong>
+            <span class="muted">${holding.name}</span>
+            <div class="chip-row">
+              <span class="chip">${getAssetTypeLabel(holding.assetType)}</span>
+              <span class="chip">${holding.market}</span>
+            </div>
+          </div>
+        </td>
+        <td>${holding.platform}</td>
+        <td>${holding.notes ? escapeHtml(holding.notes) : "-"}</td>
+        <td>${holding.currentPrice ? `${holding.currentPrice} ${holding.currency}` : "-"}</td>
+        <td class="${holding.realizedPnlTotal >= 0 ? "gain" : "loss"}">${formatMoney(holding.realizedPnlTotal || 0)}</td>
+        <td>${holding.notes || "-"}</td>
+      </tr>
+    `)
+    .join("");
+}
+
+function renderRealizedPnlTable() {
+  renderRealizedPnlFilters();
+
+  if (!realizedPnlTableBody) return;
+  const rows = getFilteredRealizedPnl();
+
+  if (!rows.length) {
+    realizedPnlTableBody.innerHTML = `
+      <tr>
+        <td colspan="9" class="empty-row">还没有已实现盈亏记录，完成一次减仓或清仓后这里会自动出现。</td>
+      </tr>
+    `;
+    return;
+  }
+
+  realizedPnlTableBody.innerHTML = rows
+    .map((entry) => `
+      <tr>
+        <td>${formatDate(entry.recognizedDate)}</td>
+        <td>
+          <div class="asset-meta">
+            <strong>${entry.symbol || "-"}</strong>
+            <span class="muted">${entry.name || ""}</span>
+            <div class="chip-row">
+              ${entry.assetType ? `<span class="chip">${getAssetTypeLabel(entry.assetType)}</span>` : ""}
+              ${entry.accountName ? `<span class="chip">${entry.accountName}</span>` : ""}
+            </div>
+          </div>
+        </td>
+        <td>${entry.platform || "-"}</td>
+        <td>${entry.notes ? escapeHtml(entry.notes) : "-"}</td>
+        <td>${entry.quantityClosed || 0}</td>
+        <td>${entry.tradeCurrency ? `${entry.proceedsAmount.toFixed(2)} ${entry.tradeCurrency}` : entry.proceedsAmount.toFixed(2)}</td>
+        <td>${entry.tradeCurrency ? `${entry.costAmount.toFixed(2)} ${entry.tradeCurrency}` : entry.costAmount.toFixed(2)}</td>
+        <td class="${entry.realizedPnlUsd >= 0 ? "gain" : "loss"}">${formatMoney(entry.realizedPnlUsd || 0)}</td>
+        <td>${entry.notes || "-"}</td>
+      </tr>
+    `)
+    .join("");
+}
+
+function renderReviewMetricsSection() {
+  if (reviewTotalNav) {
+    reviewTotalNav.textContent = formatMoney(reviewMetrics?.totalNavUsd || 0);
+  }
+  if (reviewRealizedPnl) {
+    reviewRealizedPnl.textContent = formatMoney(reviewMetrics?.realizedPnlUsd || 0);
+    reviewRealizedPnl.className = `metric-value ${(reviewMetrics?.realizedPnlUsd || 0) >= 0 ? "gain" : "loss"}`;
+  }
+  if (reviewUnrealizedPnl) {
+    reviewUnrealizedPnl.textContent = formatMoney(reviewMetrics?.unrealizedPnlUsd || 0);
+    reviewUnrealizedPnl.className = `metric-value ${(reviewMetrics?.unrealizedPnlUsd || 0) >= 0 ? "gain" : "loss"}`;
+  }
+  if (reviewCash) {
+    reviewCash.textContent = formatMoney(reviewMetrics?.currentCashUsd || 0);
+  }
+  if (reviewWinRate) {
+    reviewWinRate.textContent = `胜率 ${formatPercent(reviewMetrics?.winRate || 0)}`;
+  }
+
+  if (!reviewMetricsList) return;
+  const metrics = reviewMetrics || {};
+  const hasDistinctWorstTrade = Number(metrics.closedTrades || 0) > 1;
+  const items = [
+    { title: "总盈亏", caption: "已实现 + 未实现", value: formatMoney(metrics.totalPnlUsd || 0), tone: (metrics.totalPnlUsd || 0) >= 0 ? "gain" : "loss" },
+    { title: "已完成交易", caption: `盈利 ${metrics.winningTrades || 0} / 亏损 ${metrics.losingTrades || 0} / 持平 ${metrics.flatTrades || 0}`, value: String(metrics.closedTrades || 0) },
+    { title: "平均盈利交易", caption: "仅统计已实现盈利交易", value: formatMoney(metrics.avgWinUsd || 0), tone: "gain" },
+    { title: "平均亏损交易", caption: "仅统计已实现亏损交易", value: formatMoney(metrics.avgLossUsd || 0), tone: "loss" },
+    { title: "最佳交易", caption: metrics.bestTrade ? `${metrics.bestTrade.symbol} · ${metrics.bestTrade.platform} · ${formatDate(metrics.bestTrade.recognizedDate)}` : "暂无", value: formatMoney(metrics.bestTrade?.realizedPnlUsd || 0), tone: "gain" },
+    ...(hasDistinctWorstTrade
+      ? [{ title: "最差交易", caption: metrics.worstTrade ? `${metrics.worstTrade.symbol} · ${metrics.worstTrade.platform} · ${formatDate(metrics.worstTrade.recognizedDate)}` : "暂无", value: formatMoney(metrics.worstTrade?.realizedPnlUsd || 0), tone: "loss" }]
+      : []),
+  ];
+
+  reviewMetricsList.classList.remove("empty-state");
+  reviewMetricsList.innerHTML = items
+    .map((item) => `
+      <article class="stack-item">
+        <div>
+          <strong class="stack-title">${item.title}</strong>
+          <span class="stack-caption">${item.caption}</span>
+        </div>
+        <strong class="stack-value ${item.tone || ""}">${item.value}</strong>
+      </article>
+    `)
+    .join("");
+}
+
+function renderNavSeriesTable() {
+  if (!navSeriesTableBody) return;
+  if (!navSeries.length) {
+    navSeriesTableBody.innerHTML = `
+      <tr>
+        <td colspan="7" class="empty-row">还没有历史净值快照，系统会从今天开始持续沉淀。</td>
+      </tr>
+    `;
+    return;
+  }
+
+  navSeriesTableBody.innerHTML = [...navSeries]
+    .sort((a, b) => String(b.snapshotDate || "").localeCompare(String(a.snapshotDate || "")))
+    .map((entry) => `
+      <tr>
+        <td>${formatDate(entry.snapshotDate)}</td>
+        <td>${formatMoney(entry.navUsd || 0)}</td>
+        <td>${formatMoney(entry.cashUsd || 0)}</td>
+        <td>${formatMoney(entry.marketValueUsd || 0)}</td>
+        <td class="${(entry.unrealizedPnlUsd || 0) >= 0 ? "gain" : "loss"}">${formatMoney(entry.unrealizedPnlUsd || 0)}</td>
+        <td class="${(entry.realizedPnlUsd || 0) >= 0 ? "gain" : "loss"}">${formatMoney(entry.realizedPnlUsd || 0)}</td>
+        <td class="${(entry.totalPnlUsd || 0) >= 0 ? "gain" : "loss"}">${formatMoney(entry.totalPnlUsd || 0)}</td>
+      </tr>
+    `)
+    .join("");
+}
+
 function renderDashboard() {
   const summary = summarizeHoldings(holdings);
   updateSummaryCards(summary);
@@ -572,6 +965,11 @@ function renderDashboard() {
   renderAllocationList(platformAllocation, Object.entries(summary.byPlatform), {}, summary.totalMarketValue);
   renderGapList(summary.gaps);
   renderTable(summary);
+  renderTransactionsTable();
+  renderClosedHoldingsTable();
+  renderRealizedPnlTable();
+  renderReviewMetricsSection();
+  renderNavSeriesTable();
 }
 
 function getCurrencyValue() {
@@ -628,6 +1026,38 @@ function resetForm() {
   setCurrencyValue("USD");
   updateFormForAssetType();
   setPriceLookupStatus("填好代码、市场和币种后，系统会先查数据库缓存，未命中时再请求 Yahoo Finance 代理服务，包括 XAUUSD / XAGUSD 这类贵金属映射。");
+}
+
+function closeHoldingModal() {
+  activeHoldingMode = "create";
+  resetForm();
+  if (holdingModalTitle) holdingModalTitle.textContent = "新增持仓";
+  if (holdingModalSubtitle) holdingModalSubtitle.textContent = "录入每个平台上的股票、期权、现金和加密货币持仓。";
+  if (holdingSubmitBtn) holdingSubmitBtn.textContent = "保存持仓";
+  holdingModal?.classList.add("is-hidden");
+  holdingModal?.setAttribute("aria-hidden", "true");
+}
+
+function openHoldingModal(mode = "create", holding = null) {
+  activeHoldingMode = mode;
+  resetForm();
+
+  if (mode === "edit" && holding) {
+    populateForm(holding);
+    if (holdingModalTitle) holdingModalTitle.textContent = "编辑持仓";
+    if (holdingModalSubtitle) holdingModalSubtitle.textContent = "修改这条持仓后，系统会同步更新快照、行情和账本关联。";
+    if (holdingSubmitBtn) holdingSubmitBtn.textContent = "保存修改";
+  } else {
+    if (holdingModalTitle) holdingModalTitle.textContent = "新增持仓";
+    if (holdingModalSubtitle) holdingModalSubtitle.textContent = "录入每个平台上的股票、期权、现金和加密货币持仓。";
+    if (holdingSubmitBtn) holdingSubmitBtn.textContent = "保存持仓";
+  }
+
+  holdingModal?.classList.remove("is-hidden");
+  holdingModal?.setAttribute("aria-hidden", "false");
+  window.setTimeout(() => {
+    fields.assetType?.focus();
+  }, 0);
 }
 
 function updateFormForAssetType() {
@@ -765,6 +1195,10 @@ function setAuthenticatedState(user) {
   } else {
     userBadge.textContent = "请先登录后查看个人投资总览";
     holdings = [];
+    transactions = [];
+    realizedPnlEntries = [];
+    reviewMetrics = null;
+    navSeries = [];
     renderDashboard();
     setSyncStatus("登录后可同步和查看属于你自己的持仓。");
   }
@@ -782,6 +1216,10 @@ async function loadPublicConfig() {
 
 async function refreshHoldings() {
   holdings = await request("/api/holdings");
+  transactions = await request("/api/transactions");
+  realizedPnlEntries = await request("/api/realized-pnl");
+  reviewMetrics = await request("/api/review-metrics");
+  navSeries = await request("/api/nav-series");
   renderDashboard();
 }
 
@@ -805,6 +1243,12 @@ function setPriceLookupStatus(message, tone = "", source = null) {
     priceLookupSource.textContent = "";
     priceLookupSource.className = "sync-status is-hidden";
   }
+}
+
+function setTradeStatus(message, tone = "") {
+  if (!tradeFormStatus) return;
+  tradeFormStatus.textContent = message;
+  tradeFormStatus.className = `sync-status ${tone}`.trim();
 }
 
 function buildHoldingDraft() {
@@ -926,6 +1370,10 @@ async function refreshLatestPrices() {
   try {
     const result = await request("/api/prices/refresh", { method: "POST" });
     holdings = result.holdings || [];
+    transactions = await request("/api/transactions");
+    realizedPnlEntries = await request("/api/realized-pnl");
+    reviewMetrics = await request("/api/review-metrics");
+    navSeries = await request("/api/nav-series");
     renderDashboard();
 
     const warnings = Array.isArray(result.warnings) ? result.warnings : [];
@@ -974,8 +1422,12 @@ async function saveHolding() {
     holdings.unshift(saved);
   }
 
+  transactions = await request("/api/transactions");
+  realizedPnlEntries = await request("/api/realized-pnl");
+  reviewMetrics = await request("/api/review-metrics");
+  navSeries = await request("/api/nav-series");
   renderDashboard();
-  resetForm();
+  closeHoldingModal();
 }
 
 async function importHoldings(data) {
@@ -983,8 +1435,92 @@ async function importHoldings(data) {
     method: "POST",
     body: JSON.stringify(data),
   });
+  transactions = await request("/api/transactions");
+  realizedPnlEntries = await request("/api/realized-pnl");
+  reviewMetrics = await request("/api/review-metrics");
+  navSeries = await request("/api/nav-series");
   renderDashboard();
   resetForm();
+}
+
+async function submitHoldingTrade(holding, payload) {
+  const result = await request(`/api/holdings/${holding.id}/trades`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+
+  if (Array.isArray(result?.relatedHoldings)) {
+    result.relatedHoldings.forEach((relatedHolding) => {
+      if (!relatedHolding?.id) return;
+      const relatedIndex = holdings.findIndex((item) => item.id === relatedHolding.id);
+      if (relatedIndex >= 0) {
+        holdings[relatedIndex] = relatedHolding;
+      } else {
+        holdings.unshift(relatedHolding);
+      }
+    });
+  }
+
+  if (result?.holding) {
+    const index = holdings.findIndex((item) => item.id === holding.id);
+    if (index >= 0) {
+      holdings[index] = result.holding;
+    } else {
+      holdings.unshift(result.holding);
+    }
+  }
+
+  transactions = await request("/api/transactions");
+  realizedPnlEntries = await request("/api/realized-pnl");
+  reviewMetrics = await request("/api/review-metrics");
+  navSeries = await request("/api/nav-series");
+  renderDashboard();
+
+  return result;
+}
+
+function closeTradeModal() {
+  activeTradeHoldingId = null;
+  activeTradeAction = null;
+  tradeForm?.reset();
+  tradeModal?.classList.add("is-hidden");
+  tradeModal?.setAttribute("aria-hidden", "true");
+}
+
+function openTradeModal(holding, action) {
+  activeTradeHoldingId = holding.id;
+  activeTradeAction = action;
+
+  const actionLabel = action === "add" ? "加仓" : action === "reduce" ? "减仓" : "清仓";
+  const quantityLabel = holding.assetType === "option" ? "张数" : "数量";
+  const isClose = action === "close";
+  const defaultUnitPrice = Number(holding.currentPrice || 0) || Number(holding.costPrice || 0) || 0;
+
+  tradeActionLabel.value = actionLabel;
+  tradeSymbol.value = `${holding.symbol} · ${holding.name}`;
+  tradeQuantityLabel.textContent = quantityLabel;
+  if (tradeUnitPriceLabel) {
+    tradeUnitPriceLabel.textContent = isClose ? "清仓价格" : "成交价";
+  }
+  tradeUnitPriceInput.placeholder = isClose ? "请输入清仓价格" : "请输入成交价";
+  tradeQuantityField.classList.toggle("is-hidden", isClose);
+  tradeQuantityInput.required = !isClose;
+  tradeQuantityInput.value = isClose ? "" : action === "reduce" ? String(holding.quantity || "") : "";
+  tradeUnitPriceInput.value = defaultUnitPrice ? String(defaultUnitPrice) : "";
+  tradeDateInput.value = getTodayInShanghai();
+  tradeFeeInput.value = "";
+  tradeTaxInput.value = "";
+  tradeNotesInput.value = "";
+  setTradeStatus(`填写${actionLabel}信息后，系统会自动更新持仓快照和账本。`);
+  tradeModal.classList.remove("is-hidden");
+  tradeModal.setAttribute("aria-hidden", "false");
+  window.setTimeout(() => {
+    if (isClose) {
+      tradeUnitPriceInput?.focus();
+    } else {
+      tradeQuantityInput?.focus();
+    }
+  }, 0);
 }
 
 async function continueAuth(username, password) {
@@ -1054,13 +1590,18 @@ authForm.addEventListener("submit", (event) => {
     });
 });
 
-cancelEditBtn.addEventListener("click", resetForm);
+cancelEditBtn.addEventListener("click", closeHoldingModal);
 logoutBtn.addEventListener("click", () => {
   logout().catch((error) => {
     setAuthStatus(error.message || "退出失败", "warning");
   });
 });
 refreshPricesBtn.addEventListener("click", () => {
+  refreshLatestPrices().catch((error) => {
+    setSyncStatus(`T-1 行情同步失败：${error.message}`, "warning");
+  });
+});
+refreshPricesBtnInline?.addEventListener("click", () => {
   refreshLatestPrices().catch((error) => {
     setSyncStatus(`T-1 行情同步失败：${error.message}`, "warning");
   });
@@ -1096,13 +1637,31 @@ loadSampleBtn.addEventListener("click", () => {
     window.alert(error.message || "载入示例数据失败")
   );
 });
+loadSampleBtnInline?.addEventListener("click", () => {
+  importHoldings(sampleHoldings.map((item) => ({ ...item, id: generateUuid() }))).catch((error) =>
+    window.alert(error.message || "载入示例数据失败")
+  );
+});
 
 resetBtn.addEventListener("click", () => {
   if (!window.confirm("确定要清空当前全部持仓吗？")) return;
   importHoldings([]).catch((error) => window.alert(error.message || "清空失败"));
 });
+resetBtnInline?.addEventListener("click", () => {
+  if (!window.confirm("确定要清空当前全部持仓吗？")) return;
+  importHoldings([]).catch((error) => window.alert(error.message || "清空失败"));
+});
 
 exportBtn.addEventListener("click", () => {
+  const blob = new Blob([JSON.stringify(holdings, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = "investment-dashboard-holdings.json";
+  anchor.click();
+  URL.revokeObjectURL(url);
+});
+exportBtnInline?.addEventListener("click", () => {
   const blob = new Blob([JSON.stringify(holdings, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
@@ -1134,6 +1693,34 @@ importFileInput.addEventListener("change", async (event) => {
   }
 });
 
+importFileInputInline?.addEventListener("change", async (event) => {
+  const [file] = event.target.files || [];
+  if (!file) return;
+
+  try {
+    const content = await file.text();
+    const parsed = JSON.parse(content);
+    if (!Array.isArray(parsed)) throw new Error("导入文件格式不正确");
+
+    await importHoldings(
+      parsed.map((item) => ({
+        ...item,
+        id: item.id || generateUuid(),
+      }))
+    );
+  } catch (error) {
+    window.alert(error.message || "导入失败，请检查 JSON 文件");
+  } finally {
+    importFileInputInline.value = "";
+  }
+});
+
+openHoldingModalBtn?.addEventListener("click", () => {
+  openHoldingModal("create");
+});
+
+holdingModalBackdrop?.addEventListener("click", closeHoldingModal);
+
 holdingsTableBody.addEventListener("click", (event) => {
   const button = event.target.closest("button");
   if (!button) return;
@@ -1144,14 +1731,29 @@ holdingsTableBody.addEventListener("click", (event) => {
   if (!target) return;
 
   if (action === "edit") {
-    populateForm(target);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    openHoldingModal("edit", target);
+  }
+
+  if (action === "add-position") {
+    openTradeModal(target, "add");
+  }
+
+  if (action === "reduce-position") {
+    openTradeModal(target, "reduce");
+  }
+
+  if (action === "close-position") {
+    openTradeModal(target, "close");
   }
 
   if (action === "delete") {
     request(`/api/holdings/${id}`, { method: "DELETE" })
-      .then(() => {
+      .then(async () => {
         holdings = holdings.filter((item) => item.id !== id);
+        transactions = await request("/api/transactions");
+        realizedPnlEntries = await request("/api/realized-pnl");
+        reviewMetrics = await request("/api/review-metrics");
+        navSeries = await request("/api/nav-series");
         renderDashboard();
         if (fields.id.value === id) resetForm();
       })
@@ -1177,12 +1779,115 @@ holdingsTableBody.addEventListener("click", (event) => {
   }
 });
 
+tradeForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+
+  const holding = holdings.find((item) => item.id === activeTradeHoldingId);
+  if (!holding || !activeTradeAction) {
+    closeTradeModal();
+    return;
+  }
+
+  const isClose = activeTradeAction === "close";
+  const quantity = isClose ? null : Number(tradeQuantityInput.value);
+  const unitPrice = Number(tradeUnitPriceInput.value);
+  const feeAmount = Number(tradeFeeInput.value || 0);
+  const taxAmount = Number(tradeTaxInput.value || 0);
+
+  if (!isClose && (!Number.isFinite(quantity) || quantity <= 0)) {
+    setTradeStatus("数量必须大于 0。", "warning");
+    return;
+  }
+
+  if (!Number.isFinite(unitPrice) || unitPrice < 0) {
+    setTradeStatus("成交价必须是有效数字。", "warning");
+    return;
+  }
+
+  tradeSubmitBtn.disabled = true;
+  setTradeStatus("正在提交交易并更新账本...", "");
+
+  try {
+    const payload = {
+      action: activeTradeAction,
+      unitPrice,
+      tradeDate: tradeDateInput.value || getTodayInShanghai(),
+      feeAmount: Number.isFinite(feeAmount) ? feeAmount : 0,
+      taxAmount: Number.isFinite(taxAmount) ? taxAmount : 0,
+      notes: tradeNotesInput.value.trim(),
+    };
+
+    if (!isClose) {
+      payload.quantity = quantity;
+    }
+
+    const result = await submitHoldingTrade(holding, payload);
+    const realizedPnl = Number(result?.realizedPnlUsd || 0);
+
+    if (activeTradeAction === "add") {
+      setSyncStatus(`${holding.symbol} 已完成加仓。`, "success");
+    } else if (activeTradeAction === "reduce") {
+      setSyncStatus(`${holding.symbol} 已完成减仓，已实现盈亏 ${formatMoney(realizedPnl)}。`, "success");
+    } else {
+      setSyncStatus(`${holding.symbol} 已完成清仓，已实现盈亏 ${formatMoney(realizedPnl)}。`, "success");
+    }
+
+    closeTradeModal();
+  } catch (error) {
+    setTradeStatus(error.message || "交易提交失败", "warning");
+  } finally {
+    tradeSubmitBtn.disabled = false;
+  }
+});
+
+tradeCancelBtn?.addEventListener("click", closeTradeModal);
+tradeModalBackdrop?.addEventListener("click", closeTradeModal);
+
 [filterAssetType, filterPlatform, filterMarket].forEach((container, index) => {
   container?.addEventListener("change", (event) => {
     const key = index === 0 ? "assetType" : index === 1 ? "platform" : "market";
     activeFilters[key] = event.target.value || "";
     renderDashboard();
   });
+});
+
+[txFilterType, txFilterAssetType, txFilterPlatform].forEach((container, index) => {
+  container?.addEventListener("change", (event) => {
+    const key = index === 0 ? "transactionType" : index === 1 ? "assetType" : "platform";
+    activeTransactionFilters[key] = event.target.value || "";
+    renderTransactionsTable();
+  });
+});
+
+txSearch?.addEventListener("input", (event) => {
+  activeTransactionFilters.query = event.target.value || "";
+  renderTransactionsTable();
+});
+
+[closedFilterAssetType, closedFilterPlatform].forEach((container, index) => {
+  container?.addEventListener("change", (event) => {
+    const key = index === 0 ? "assetType" : "platform";
+    activeClosedFilters[key] = event.target.value || "";
+    renderClosedHoldingsTable();
+  });
+});
+
+closedSearch?.addEventListener("input", (event) => {
+  activeClosedFilters.query = event.target.value || "";
+  renderClosedHoldingsTable();
+});
+
+[rpFilterAssetType, rpFilterPlatform].forEach((container, index) => {
+  container?.addEventListener("change", (event) => {
+    const key = index === 0 ? "assetType" : "platform";
+    activeRealizedPnlFilters[key] = event.target.value || "";
+    renderRealizedPnlTable();
+  });
+});
+
+rpSearch?.addEventListener("input", (event) => {
+  activeRealizedPnlFilters.query = event.target.value || "";
+  renderRealizedPnlTable();
 });
 
 [sortCost, sortMarketValue, sortPnl, sortAllocation].forEach((select) => {
