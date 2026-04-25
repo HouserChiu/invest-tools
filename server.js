@@ -392,6 +392,16 @@ function mapRealizedPnlRow(row) {
   };
 }
 
+function parseMetadataJson(value) {
+  if (!value) return null;
+  if (typeof value === "object") return value;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
+}
+
 function computeHoldingMetricsBase(holding) {
   const quantity = Number(holding.quantity || 0);
   const costPrice = Number(holding.costPrice || 0);
@@ -1690,6 +1700,1111 @@ async function processHoldingTrade(db, userId, holdingRow, payload = {}) {
   };
 }
 
+async function consumeHoldingLotsWithoutRealization(db, userId, holding, quantityToConsume, tradeDate) {
+  const multiplier = Number(holding.contractMultiplier || 1) || 1;
+  const [lotRows] = await db.query(
+    `SELECT *
+     FROM position_lots
+     WHERE holding_id = ?
+       AND user_id = ?
+       AND status = 'OPEN'
+       AND remaining_quantity > 0
+     ORDER BY open_date ASC, created_at ASC, id ASC`,
+    [holding.id, userId]
+  );
+
+  let remainingToConsume = Number(quantityToConsume || 0);
+  let basisUsd = 0;
+  let basisTradeAmount = 0;
+
+  for (const lot of lotRows) {
+    if (remainingToConsume <= 0) break;
+
+    const lotRemaining = Number(lot.remaining_quantity || 0);
+    if (lotRemaining <= 0) continue;
+
+    const consumedQty = Math.min(remainingToConsume, lotRemaining);
+    const lotOpenUnitPrice = Number(lot.open_unit_price || 0);
+    const lotFx = Number(lot.open_fx_rate_to_usd || 1) || 1;
+    basisTradeAmount += consumedQty * lotOpenUnitPrice * multiplier;
+    basisUsd += consumedQty * lotOpenUnitPrice * multiplier * lotFx;
+
+    const newRemaining = lotRemaining - consumedQty;
+    await db.query(
+      `UPDATE position_lots
+       SET remaining_quantity = ?,
+           status = ?,
+           closed_at = CASE WHEN ? = 0 THEN ? ELSE closed_at END
+       WHERE id = ? AND user_id = ?`,
+      [newRemaining, newRemaining === 0 ? "CLOSED" : "OPEN", newRemaining, tradeDate, lot.id, userId]
+    );
+
+    remainingToConsume -= consumedQty;
+  }
+
+  if (remainingToConsume > 0) {
+    throw new Error("Not enough open lots to settle this option holding");
+  }
+
+  const oldQuantity = Number(holding.quantity || 0);
+  const newQuantity = oldQuantity - Number(quantityToConsume || 0);
+  const nextStatus = newQuantity === 0 ? "CLOSED" : "OPEN";
+  const newBookCostTotal = Math.max(0, Number(holding.bookCostTotal || 0) - basisUsd);
+  const newCostPrice = newQuantity > 0 ? newBookCostTotal / (newQuantity * multiplier * (Number(holding.fxRate || 1) || 1)) : 0;
+
+  await db.query(
+    `UPDATE holdings
+     SET quantity = ?,
+         cost_price = ?,
+         status = ?,
+         closed_at = CASE WHEN ? = 'CLOSED' THEN ? ELSE NULL END,
+         book_cost_total = ?,
+         notes = notes
+     WHERE id = ? AND user_id = ?`,
+    [newQuantity, newCostPrice, nextStatus, nextStatus, tradeDate, newBookCostTotal, holding.id, userId]
+  );
+
+  const [rows] = await db.query("SELECT * FROM holdings WHERE id = ? AND user_id = ? LIMIT 1", [holding.id, userId]);
+
+  return {
+    basisUsd,
+    basisTradeAmount,
+    holding: rows[0] ? mapRow(rows[0]) : null,
+  };
+}
+
+async function findUnderlyingStockHolding(db, userId, optionHoldingRow) {
+  const symbol = String(optionHoldingRow.underlying || "").trim().toUpperCase();
+  if (!symbol) {
+    throw new Error("Option underlying symbol is missing");
+  }
+
+  const [rows] = await db.query(
+    `SELECT *
+     FROM holdings
+     WHERE user_id = ?
+       AND account_id = ?
+       AND asset_type = 'stock'
+       AND symbol = ?
+       AND currency = ?
+     ORDER BY CASE WHEN status = 'OPEN' THEN 0 ELSE 1 END, updated_at DESC, created_at DESC, id DESC
+     LIMIT 1`,
+    [userId, optionHoldingRow.account_id, symbol, optionHoldingRow.currency]
+  );
+
+  return rows[0] || null;
+}
+
+async function findOrCreateUnderlyingStockHolding(db, userId, optionHoldingRow) {
+  const existing = await findUnderlyingStockHolding(db, userId, optionHoldingRow);
+  if (existing) {
+    return existing;
+  }
+
+  const stockHolding = {
+    id: createId(),
+    userId,
+    portfolioId: optionHoldingRow.portfolio_id,
+    accountId: optionHoldingRow.account_id,
+    instrumentId: null,
+    assetType: "stock",
+    positionSide: "long",
+    platform: optionHoldingRow.platform,
+    market: optionHoldingRow.market,
+    symbol: String(optionHoldingRow.underlying || "").trim().toUpperCase(),
+    name: String(optionHoldingRow.underlying || "").trim().toUpperCase(),
+    currency: optionHoldingRow.currency,
+    quantity: 0,
+    costPrice: 0,
+    currentPrice: Number(optionHoldingRow.strike_price || 0),
+    fxRate: Number(optionHoldingRow.fx_rate || 1) || 1,
+    targetAllocation: 0,
+    notes: "期权交割自动创建的标的持仓",
+    underlying: "",
+    optionType: "",
+    strikePrice: null,
+    expiryDate: null,
+    contractMultiplier: 1,
+    status: "OPEN",
+    openedAt: toMysqlDateTime(new Date()),
+    closedAt: null,
+    bookCostTotal: 0,
+    realizedPnlTotal: 0,
+  };
+
+  const instrument = await findOrCreateInstrument(stockHolding, db);
+  stockHolding.instrumentId = instrument.id;
+
+  await db.query(
+    `INSERT INTO holdings (
+      id, user_id, portfolio_id, account_id, instrument_id,
+      asset_type, position_side, platform, market, symbol, name, currency,
+      quantity, cost_price, current_price, fx_rate, target_allocation, notes,
+      underlying, option_type, strike_price, expiry_date, contract_multiplier,
+      status, opened_at, closed_at, book_cost_total, realized_pnl_total
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      stockHolding.id,
+      stockHolding.userId,
+      stockHolding.portfolioId,
+      stockHolding.accountId,
+      stockHolding.instrumentId,
+      stockHolding.assetType,
+      stockHolding.positionSide,
+      stockHolding.platform,
+      stockHolding.market,
+      stockHolding.symbol,
+      stockHolding.name,
+      stockHolding.currency,
+      stockHolding.quantity,
+      stockHolding.costPrice,
+      stockHolding.currentPrice,
+      stockHolding.fxRate,
+      stockHolding.targetAllocation,
+      stockHolding.notes,
+      stockHolding.underlying,
+      stockHolding.optionType,
+      stockHolding.strikePrice,
+      stockHolding.expiryDate,
+      stockHolding.contractMultiplier,
+      stockHolding.status,
+      stockHolding.openedAt,
+      stockHolding.closedAt,
+      stockHolding.bookCostTotal,
+      stockHolding.realizedPnlTotal,
+    ]
+  );
+
+  const [rows] = await db.query("SELECT * FROM holdings WHERE id = ? AND user_id = ? LIMIT 1", [stockHolding.id, userId]);
+  return rows[0] || null;
+}
+
+async function addUnderlyingStockFromOptionSettlement(db, userId, optionHoldingRow, payload = {}) {
+  const stockHoldingRow = await findOrCreateUnderlyingStockHolding(db, userId, optionHoldingRow);
+  if (!stockHoldingRow) {
+    throw new Error("Underlying stock holding could not be created");
+  }
+
+  const stockHolding = mapRow(stockHoldingRow);
+  const shareQuantity = Number(payload.shareQuantity || 0);
+  const totalCostTradeAmount = Number(payload.totalCostTradeAmount || 0);
+  const tradeDate = toDateOnly(payload.tradeDate) || getCurrentDateString();
+  const fxRate = Number(stockHolding.fxRate || optionHoldingRow.fx_rate || 1) || 1;
+  const totalCostUsd = toUsdAmount(totalCostTradeAmount, fxRate);
+  const newQuantity = Number(stockHolding.quantity || 0) + shareQuantity;
+  const newBookCostTotal = Number(stockHolding.bookCostTotal || 0) + totalCostUsd;
+  const newCostPrice = newQuantity > 0 ? newBookCostTotal / (newQuantity * fxRate) : 0;
+  const unitPrice = shareQuantity > 0 ? totalCostTradeAmount / shareQuantity : 0;
+  const sourceRef = payload.sourceRef || `holding:${optionHoldingRow.id}`;
+  const notes = payload.notes || null;
+
+  const transactionId = await insertPortfolioTransaction(db, {
+    userId,
+    portfolioId: stockHoldingRow.portfolio_id,
+    accountId: stockHoldingRow.account_id,
+    instrumentId: stockHoldingRow.instrument_id,
+    holdingId: stockHoldingRow.id,
+    transactionType: "OPTION_STOCK_IN",
+    side: "LONG",
+    tradeDate,
+    quantity: shareQuantity,
+    unitPrice,
+    grossAmount: totalCostTradeAmount,
+    feeAmount: 0,
+    taxAmount: 0,
+    netAmount: totalCostTradeAmount,
+    tradeCurrency: stockHolding.currency,
+    fxRateToUsd: fxRate,
+    sourceRef,
+    notes,
+    metadataJson: JSON.stringify({
+      linkedOptionHoldingId: optionHoldingRow.id,
+      linkedOptionSymbol: optionHoldingRow.symbol,
+    }),
+  });
+
+  await createPositionLot(db, {
+    userId,
+    portfolioId: stockHoldingRow.portfolio_id,
+    accountId: stockHoldingRow.account_id,
+    instrumentId: stockHoldingRow.instrument_id,
+    holdingId: stockHoldingRow.id,
+    openTransactionId: transactionId,
+    openDate: tradeDate,
+    lotSide: "LONG",
+    originalQuantity: shareQuantity,
+    remainingQuantity: shareQuantity,
+    openUnitPrice: unitPrice,
+    openFxRateToUsd: fxRate,
+    tradeCurrency: stockHolding.currency,
+    status: "OPEN",
+  });
+
+  await db.query(
+    `UPDATE holdings
+     SET quantity = ?,
+         cost_price = ?,
+         current_price = ?,
+         status = 'OPEN',
+         closed_at = NULL,
+         book_cost_total = ?,
+         notes = COALESCE(notes, ?)
+     WHERE id = ? AND user_id = ?`,
+    [newQuantity, newCostPrice, Number(payload.referencePrice || unitPrice || stockHolding.currentPrice || 0), newBookCostTotal, notes, stockHolding.id, userId]
+  );
+
+  const [rows] = await db.query("SELECT * FROM holdings WHERE id = ? AND user_id = ? LIMIT 1", [stockHolding.id, userId]);
+  return rows[0] ? mapRow(rows[0]) : null;
+}
+
+async function deliverUnderlyingStockForOptionSettlement(db, userId, optionHoldingRow, payload = {}) {
+  const stockHoldingRow = await findUnderlyingStockHolding(db, userId, optionHoldingRow);
+  if (!stockHoldingRow) {
+    throw new Error("未找到可交割的标的股票持仓");
+  }
+
+  const stockHolding = mapRow(stockHoldingRow);
+  const shareQuantity = Number(payload.shareQuantity || 0);
+  if (Number(stockHolding.quantity || 0) < shareQuantity) {
+    throw new Error("标的股票数量不足，当前版本暂不支持自动创建空头股票仓位");
+  }
+
+  const strikePrice = Number(payload.strikePrice || 0);
+  const premiumAdjustmentTradeAmount = Number(payload.premiumAdjustmentTradeAmount || 0);
+  const feeAmount = Number(payload.feeAmount || 0) || 0;
+  const taxAmount = Number(payload.taxAmount || 0) || 0;
+  const tradeDate = toDateOnly(payload.tradeDate) || getCurrentDateString();
+  const fxRate = Number(stockHolding.fxRate || optionHoldingRow.fx_rate || 1) || 1;
+  const sourceRef = payload.sourceRef || `holding:${optionHoldingRow.id}`;
+  const notes = payload.notes || null;
+
+  const [lotRows] = await db.query(
+    `SELECT *
+     FROM position_lots
+     WHERE holding_id = ?
+       AND user_id = ?
+       AND status = 'OPEN'
+       AND remaining_quantity > 0
+     ORDER BY open_date ASC, created_at ASC, id ASC`,
+    [stockHolding.id, userId]
+  );
+
+  let remainingToClose = shareQuantity;
+  let basisClosedUsd = 0;
+  let realizedPnlUsdTotal = 0;
+  const grossAmount = shareQuantity * strikePrice;
+
+  const closeTransactionId = await insertPortfolioTransaction(db, {
+    userId,
+    portfolioId: stockHoldingRow.portfolio_id,
+    accountId: stockHoldingRow.account_id,
+    instrumentId: stockHoldingRow.instrument_id,
+    holdingId: stockHoldingRow.id,
+    transactionType: "OPTION_STOCK_OUT",
+    side: "LONG",
+    tradeDate,
+    quantity: shareQuantity,
+    unitPrice: strikePrice,
+    grossAmount,
+    feeAmount,
+    taxAmount,
+    netAmount: grossAmount - feeAmount - taxAmount,
+    tradeCurrency: stockHolding.currency,
+    fxRateToUsd: fxRate,
+    sourceRef,
+    notes,
+    metadataJson: JSON.stringify({
+      linkedOptionHoldingId: optionHoldingRow.id,
+      linkedOptionSymbol: optionHoldingRow.symbol,
+      premiumAdjustmentTradeAmount,
+    }),
+  });
+
+  for (const lot of lotRows) {
+    if (remainingToClose <= 0) break;
+
+    const lotRemaining = Number(lot.remaining_quantity || 0);
+    if (lotRemaining <= 0) continue;
+
+    const consumedQty = Math.min(remainingToClose, lotRemaining);
+    const lotOpenUnitPrice = Number(lot.open_unit_price || 0);
+    const lotFx = Number(lot.open_fx_rate_to_usd || 1) || 1;
+    const basisTrade = consumedQty * lotOpenUnitPrice;
+    const basisUsd = basisTrade * lotFx;
+    const proceedsTrade = consumedQty * strikePrice;
+    const premiumTradeShare = premiumAdjustmentTradeAmount * (consumedQty / shareQuantity);
+    const feeTradeShare = feeAmount * (consumedQty / shareQuantity);
+    const taxTradeShare = taxAmount * (consumedQty / shareQuantity);
+    const realizedTrade = proceedsTrade + premiumTradeShare - basisTrade - feeTradeShare - taxTradeShare;
+    const realizedUsd = realizedTrade * fxRate;
+
+    basisClosedUsd += basisUsd;
+    realizedPnlUsdTotal += realizedUsd;
+
+    const newRemaining = lotRemaining - consumedQty;
+    await db.query(
+      `UPDATE position_lots
+       SET remaining_quantity = ?,
+           status = ?,
+           closed_at = CASE WHEN ? = 0 THEN ? ELSE closed_at END
+       WHERE id = ? AND user_id = ?`,
+      [newRemaining, newRemaining === 0 ? "CLOSED" : "OPEN", newRemaining, tradeDate, lot.id, userId]
+    );
+
+    await db.query(
+      `INSERT INTO realized_pnl_ledger (
+        id, user_id, portfolio_id, account_id, instrument_id, holding_id,
+        open_transaction_id, close_transaction_id, lot_id,
+        recognized_date, quantity_closed, proceeds_amount, cost_amount,
+        fee_amount, tax_amount, realized_pnl_amount, realized_pnl_usd,
+        trade_currency, notes
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        createId(),
+        userId,
+        stockHoldingRow.portfolio_id,
+        stockHoldingRow.account_id,
+        stockHoldingRow.instrument_id,
+        stockHolding.id,
+        lot.open_transaction_id,
+        closeTransactionId,
+        lot.id,
+        tradeDate,
+        consumedQty,
+        proceedsTrade + premiumTradeShare,
+        basisTrade,
+        feeTradeShare,
+        taxTradeShare,
+        realizedTrade,
+        realizedUsd,
+        stockHolding.currency,
+        notes,
+      ]
+    );
+
+    remainingToClose -= consumedQty;
+  }
+
+  if (remainingToClose > 0) {
+    throw new Error("Not enough stock lots to complete option settlement");
+  }
+
+  const newQuantity = Number(stockHolding.quantity || 0) - shareQuantity;
+  const newBookCostTotal = Math.max(0, Number(stockHolding.bookCostTotal || 0) - basisClosedUsd);
+  const newRealizedPnlTotal = Number(stockHolding.realizedPnlTotal || 0) + realizedPnlUsdTotal;
+  const newCostPrice = newQuantity > 0 ? newBookCostTotal / (newQuantity * fxRate) : 0;
+  const nextStatus = newQuantity === 0 ? "CLOSED" : "OPEN";
+
+  await db.query(
+    `UPDATE holdings
+     SET quantity = ?,
+         cost_price = ?,
+         current_price = ?,
+         status = ?,
+         closed_at = CASE WHEN ? = 'CLOSED' THEN ? ELSE NULL END,
+         book_cost_total = ?,
+         realized_pnl_total = ?
+     WHERE id = ? AND user_id = ?`,
+    [
+      newQuantity,
+      newCostPrice,
+      strikePrice,
+      nextStatus,
+      nextStatus,
+      tradeDate,
+      newBookCostTotal,
+      newRealizedPnlTotal,
+      stockHolding.id,
+      userId,
+    ]
+  );
+
+  await db.query(
+    `UPDATE portfolio_transactions
+     SET realized_pnl_amount = ?
+     WHERE id = ?`,
+    [realizedPnlUsdTotal, closeTransactionId]
+  );
+
+  const [rows] = await db.query("SELECT * FROM holdings WHERE id = ? AND user_id = ? LIMIT 1", [stockHolding.id, userId]);
+  return {
+    holding: rows[0] ? mapRow(rows[0]) : null,
+    realizedPnlUsd: realizedPnlUsdTotal,
+  };
+}
+
+async function processOptionSettlement(db, userId, holdingRow, payload = {}) {
+  const holding = mapRow(holdingRow);
+  if (holding.assetType !== "option") {
+    throw new Error("Only option holdings support exercise or assignment");
+  }
+  if (holding.status === "CLOSED" || Number(holding.quantity || 0) <= 0) {
+    throw new Error("This option holding is already closed");
+  }
+
+  const action = String(payload.action || "").trim().toLowerCase();
+  if (!["exercise", "assignment"].includes(action)) {
+    throw new Error("action must be exercise or assignment");
+  }
+
+  if (holding.positionSide === "long" && action !== "exercise") {
+    throw new Error("Long options can only be exercised");
+  }
+  if (holding.positionSide === "short" && action !== "assignment") {
+    throw new Error("Short options can only be assigned");
+  }
+
+  const refs = {
+    portfolioId: holdingRow.portfolio_id,
+    accountId: holdingRow.account_id,
+    instrumentId: holdingRow.instrument_id,
+  };
+  if (!refs.portfolioId || !refs.accountId || !refs.instrumentId) {
+    throw new Error("Holding ledger references are missing");
+  }
+
+  const contractCount = Number(payload.quantity || holding.quantity || 0);
+  if (!Number.isFinite(contractCount) || contractCount <= 0) {
+    throw new Error("quantity must be greater than 0");
+  }
+  if (contractCount > Number(holding.quantity || 0)) {
+    throw new Error("quantity exceeds current option contracts");
+  }
+
+  const tradeDate = toDateOnly(payload.tradeDate) || getCurrentDateString();
+  const feeAmount = Number(payload.feeAmount || 0) || 0;
+  const taxAmount = Number(payload.taxAmount || 0) || 0;
+  const notes = String(payload.notes || "").trim() || null;
+  const strikePrice = Number(holding.strikePrice || 0);
+  const contractMultiplier = Number(holding.contractMultiplier || 1) || 1;
+  const shareQuantity = contractCount * contractMultiplier;
+  const settlementGrossAmount = shareQuantity * strikePrice;
+  const sourceRef = `holding:${holding.id}:settlement:${createId()}`;
+
+  const optionTransactionType = action === "exercise" ? "OPTION_EXERCISE" : "OPTION_ASSIGNMENT";
+  await insertPortfolioTransaction(db, {
+    userId,
+    portfolioId: refs.portfolioId,
+    accountId: refs.accountId,
+    instrumentId: refs.instrumentId,
+    holdingId: holding.id,
+    transactionType: optionTransactionType,
+    side: holding.positionSide === "short" ? "SHORT" : "LONG",
+    tradeDate,
+    quantity: contractCount,
+    unitPrice: strikePrice,
+    grossAmount: settlementGrossAmount,
+    feeAmount,
+    taxAmount,
+    netAmount:
+      (holding.positionSide === "long" && holding.optionType === "call") || (holding.positionSide === "short" && holding.optionType === "put")
+        ? -(settlementGrossAmount + feeAmount + taxAmount)
+        : settlementGrossAmount - feeAmount - taxAmount,
+    tradeCurrency: holding.currency,
+    fxRateToUsd: Number(holding.fxRate || 1) || 1,
+    sourceRef,
+    notes,
+    metadataJson: JSON.stringify({
+      action,
+      optionType: holding.optionType,
+      positionSide: holding.positionSide,
+      underlying: holding.underlying,
+      shareQuantity,
+      contractCount,
+    }),
+  });
+
+  const optionSettlement = await consumeHoldingLotsWithoutRealization(db, userId, holding, contractCount, tradeDate);
+  const relatedHoldings = [];
+  let stockResult = null;
+
+  if (holding.positionSide === "long" && holding.optionType === "call") {
+    const stockTotalCostTrade = settlementGrossAmount + optionSettlement.basisTradeAmount + feeAmount + taxAmount;
+    stockResult = await addUnderlyingStockFromOptionSettlement(db, userId, holdingRow, {
+      shareQuantity,
+      totalCostTradeAmount: stockTotalCostTrade,
+      tradeDate,
+      sourceRef,
+      notes,
+      referencePrice: strikePrice,
+    });
+    const cashHolding = await applyCashBalanceImpact(db, userId, holdingRow, -(settlementGrossAmount + feeAmount + taxAmount), {
+      action,
+      tradeDate,
+      notes,
+      sourceRef,
+    });
+    if (cashHolding) relatedHoldings.push(cashHolding);
+  } else if (holding.positionSide === "short" && holding.optionType === "put") {
+    const stockTotalCostTrade = settlementGrossAmount - optionSettlement.basisTradeAmount + feeAmount + taxAmount;
+    stockResult = await addUnderlyingStockFromOptionSettlement(db, userId, holdingRow, {
+      shareQuantity,
+      totalCostTradeAmount: stockTotalCostTrade,
+      tradeDate,
+      sourceRef,
+      notes,
+      referencePrice: strikePrice,
+    });
+    const cashHolding = await applyCashBalanceImpact(db, userId, holdingRow, -(settlementGrossAmount + feeAmount + taxAmount), {
+      action,
+      tradeDate,
+      notes,
+      sourceRef,
+    });
+    if (cashHolding) relatedHoldings.push(cashHolding);
+  } else if (holding.positionSide === "long" && holding.optionType === "put") {
+    const delivery = await deliverUnderlyingStockForOptionSettlement(db, userId, holdingRow, {
+      shareQuantity,
+      strikePrice,
+      premiumAdjustmentTradeAmount: -optionSettlement.basisTradeAmount,
+      feeAmount,
+      taxAmount,
+      tradeDate,
+      sourceRef,
+      notes,
+    });
+    stockResult = delivery?.holding || null;
+    const cashHolding = await applyCashBalanceImpact(db, userId, holdingRow, settlementGrossAmount - feeAmount - taxAmount, {
+      action,
+      tradeDate,
+      notes,
+      sourceRef,
+    });
+    if (cashHolding) relatedHoldings.push(cashHolding);
+  } else if (holding.positionSide === "short" && holding.optionType === "call") {
+    const delivery = await deliverUnderlyingStockForOptionSettlement(db, userId, holdingRow, {
+      shareQuantity,
+      strikePrice,
+      premiumAdjustmentTradeAmount: optionSettlement.basisTradeAmount,
+      feeAmount,
+      taxAmount,
+      tradeDate,
+      sourceRef,
+      notes,
+    });
+    stockResult = delivery?.holding || null;
+    const cashHolding = await applyCashBalanceImpact(db, userId, holdingRow, settlementGrossAmount - feeAmount - taxAmount, {
+      action,
+      tradeDate,
+      notes,
+      sourceRef,
+    });
+    if (cashHolding) relatedHoldings.push(cashHolding);
+  }
+
+  if (stockResult) {
+    relatedHoldings.push(stockResult);
+  }
+
+  return {
+    action,
+    transactionType: optionTransactionType,
+    quantity: contractCount,
+    shareQuantity,
+    holding: optionSettlement.holding,
+    relatedHoldings,
+  };
+}
+
+async function processOptionExpiration(db, userId, holdingRow, payload = {}) {
+  const holding = mapRow(holdingRow);
+  if (holding.assetType !== "option") {
+    throw new Error("Only option holdings support expiration");
+  }
+  if (holding.status === "CLOSED" || Number(holding.quantity || 0) <= 0) {
+    throw new Error("This option holding is already closed");
+  }
+
+  const quantity = Number(payload.quantity || holding.quantity || 0);
+  if (!Number.isFinite(quantity) || quantity <= 0) {
+    throw new Error("quantity must be greater than 0");
+  }
+  if (quantity > Number(holding.quantity || 0)) {
+    throw new Error("quantity exceeds current option contracts");
+  }
+
+  const refs = {
+    portfolioId: holdingRow.portfolio_id,
+    accountId: holdingRow.account_id,
+    instrumentId: holdingRow.instrument_id,
+  };
+  if (!refs.portfolioId || !refs.accountId || !refs.instrumentId) {
+    throw new Error("Holding ledger references are missing");
+  }
+
+  const tradeDate = toDateOnly(payload.tradeDate) || getCurrentDateString();
+  const notes = String(payload.notes || "").trim() || null;
+  const contractMultiplier = Number(holding.contractMultiplier || 1) || 1;
+  const [lotRows] = await db.query(
+    `SELECT *
+     FROM position_lots
+     WHERE holding_id = ?
+       AND user_id = ?
+       AND status = 'OPEN'
+       AND remaining_quantity > 0
+     ORDER BY open_date ASC, created_at ASC, id ASC`,
+    [holding.id, userId]
+  );
+
+  let remainingToClose = quantity;
+  let basisClosedUsd = 0;
+  let realizedPnlUsdTotal = 0;
+
+  const expireTransactionId = await insertPortfolioTransaction(db, {
+    userId,
+    portfolioId: refs.portfolioId,
+    accountId: refs.accountId,
+    instrumentId: refs.instrumentId,
+    holdingId: holding.id,
+    transactionType: "OPTION_EXPIRE",
+    side: holding.positionSide === "short" ? "SHORT" : "LONG",
+    tradeDate,
+    quantity,
+    unitPrice: 0,
+    grossAmount: 0,
+    feeAmount: 0,
+    taxAmount: 0,
+    netAmount: 0,
+    tradeCurrency: holding.currency,
+    fxRateToUsd: Number(holding.fxRate || 1) || 1,
+    sourceRef: `holding:${holding.id}:expire`,
+    notes,
+    metadataJson: JSON.stringify({
+      action: "expire",
+      optionType: holding.optionType,
+      positionSide: holding.positionSide,
+      quantity,
+    }),
+  });
+
+  for (const lot of lotRows) {
+    if (remainingToClose <= 0) break;
+
+    const lotRemaining = Number(lot.remaining_quantity || 0);
+    if (lotRemaining <= 0) continue;
+
+    const consumedQty = Math.min(remainingToClose, lotRemaining);
+    const lotOpenUnitPrice = Number(lot.open_unit_price || 0);
+    const lotFx = Number(lot.open_fx_rate_to_usd || 1) || 1;
+    const basisTrade = consumedQty * lotOpenUnitPrice * contractMultiplier;
+    const basisUsd = basisTrade * lotFx;
+    const realizedTrade = holding.positionSide === "short" ? basisTrade : -basisTrade;
+    const realizedUsd = holding.positionSide === "short" ? basisUsd : -basisUsd;
+
+    basisClosedUsd += basisUsd;
+    realizedPnlUsdTotal += realizedUsd;
+
+    const newRemaining = lotRemaining - consumedQty;
+    await db.query(
+      `UPDATE position_lots
+       SET remaining_quantity = ?,
+           status = ?,
+           closed_at = CASE WHEN ? = 0 THEN ? ELSE closed_at END
+       WHERE id = ? AND user_id = ?`,
+      [newRemaining, newRemaining === 0 ? "CLOSED" : "OPEN", newRemaining, tradeDate, lot.id, userId]
+    );
+
+    await db.query(
+      `INSERT INTO realized_pnl_ledger (
+        id, user_id, portfolio_id, account_id, instrument_id, holding_id,
+        open_transaction_id, close_transaction_id, lot_id,
+        recognized_date, quantity_closed, proceeds_amount, cost_amount,
+        fee_amount, tax_amount, realized_pnl_amount, realized_pnl_usd,
+        trade_currency, notes
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        createId(),
+        userId,
+        refs.portfolioId,
+        refs.accountId,
+        refs.instrumentId,
+        holding.id,
+        lot.open_transaction_id,
+        expireTransactionId,
+        lot.id,
+        tradeDate,
+        consumedQty,
+        0,
+        basisTrade,
+        0,
+        0,
+        realizedTrade,
+        realizedUsd,
+        holding.currency,
+        notes,
+      ]
+    );
+
+    remainingToClose -= consumedQty;
+  }
+
+  if (remainingToClose > 0) {
+    throw new Error("Not enough open lots to expire this option holding");
+  }
+
+  const newQuantity = Number(holding.quantity || 0) - quantity;
+  const newBookCostTotal = Math.max(0, Number(holding.bookCostTotal || 0) - basisClosedUsd);
+  const newRealizedPnlTotal = Number(holding.realizedPnlTotal || 0) + realizedPnlUsdTotal;
+  const newCostPrice = newQuantity > 0 ? newBookCostTotal / (newQuantity * contractMultiplier * (Number(holding.fxRate || 1) || 1)) : 0;
+  const nextStatus = newQuantity === 0 ? "CLOSED" : "OPEN";
+
+  await db.query(
+    `UPDATE holdings
+     SET quantity = ?,
+         cost_price = ?,
+         current_price = 0,
+         status = ?,
+         closed_at = CASE WHEN ? = 'CLOSED' THEN ? ELSE NULL END,
+         book_cost_total = ?,
+         realized_pnl_total = ?
+     WHERE id = ? AND user_id = ?`,
+    [newQuantity, newCostPrice, nextStatus, nextStatus, tradeDate, newBookCostTotal, newRealizedPnlTotal, holding.id, userId]
+  );
+
+  await db.query(
+    `UPDATE portfolio_transactions
+     SET realized_pnl_amount = ?
+     WHERE id = ?`,
+    [realizedPnlUsdTotal, expireTransactionId]
+  );
+
+  const [rows] = await db.query("SELECT * FROM holdings WHERE id = ? AND user_id = ? LIMIT 1", [holding.id, userId]);
+  return {
+    action: "expire",
+    transactionType: "OPTION_EXPIRE",
+    quantity,
+    realizedPnlUsd: realizedPnlUsdTotal,
+    holding: rows[0] ? mapRow(rows[0]) : null,
+    relatedHoldings: [],
+  };
+}
+
+async function recomputeHoldingFromLedger(db, userId, holdingId) {
+  const [holdingRows] = await db.query(
+    "SELECT * FROM holdings WHERE id = ? AND user_id = ? LIMIT 1",
+    [holdingId, userId]
+  );
+  if (!holdingRows[0]) {
+    throw new Error("Holding not found");
+  }
+
+  const holdingRow = holdingRows[0];
+  const holding = mapRow(holdingRow);
+  const multiplier = Number(holding.contractMultiplier || 1) || 1;
+  const fxRate = Number(holding.fxRate || 1) || 1;
+
+  const [lotRows] = await db.query(
+    `SELECT
+       COALESCE(SUM(remaining_quantity), 0) AS total_quantity,
+       COALESCE(SUM(remaining_quantity * open_unit_price * ? * open_fx_rate_to_usd), 0) AS book_cost_total
+     FROM position_lots
+     WHERE holding_id = ?
+       AND user_id = ?
+       AND remaining_quantity > 0`,
+    [multiplier, holdingId, userId]
+  );
+
+  const [realizedRows] = await db.query(
+    `SELECT COALESCE(SUM(realized_pnl_usd), 0) AS realized_total
+     FROM realized_pnl_ledger
+     WHERE holding_id = ?
+       AND user_id = ?`,
+    [holdingId, userId]
+  );
+
+  const newQuantity = Number(lotRows[0]?.total_quantity || 0);
+  const newBookCostTotal = Number(lotRows[0]?.book_cost_total || 0);
+  const newRealizedPnlTotal = Number(realizedRows[0]?.realized_total || 0);
+  const newCostPrice = newQuantity > 0 ? newBookCostTotal / (newQuantity * multiplier * fxRate) : 0;
+  const nextStatus = newQuantity > 0 ? "OPEN" : "CLOSED";
+
+  let closedAt = null;
+  if (nextStatus === "CLOSED") {
+    const [closeRows] = await db.query(
+      `SELECT MAX(trade_date) AS latest_close_date
+       FROM portfolio_transactions
+       WHERE holding_id = ?
+         AND user_id = ?
+         AND transaction_type = 'CLOSE_POSITION'`,
+      [holdingId, userId]
+    );
+    closedAt = toDateOnly(closeRows[0]?.latest_close_date) || holding.closedAt || getCurrentDateString();
+  }
+
+  await db.query(
+    `UPDATE holdings
+     SET quantity = ?,
+         cost_price = ?,
+         status = ?,
+         closed_at = ?,
+         book_cost_total = ?,
+         realized_pnl_total = ?
+     WHERE id = ? AND user_id = ?`,
+    [newQuantity, newCostPrice, nextStatus, closedAt, newBookCostTotal, newRealizedPnlTotal, holdingId, userId]
+  );
+
+  const [updatedRows] = await db.query(
+    "SELECT * FROM holdings WHERE id = ? AND user_id = ? LIMIT 1",
+    [holdingId, userId]
+  );
+  return updatedRows[0] ? mapRow(updatedRows[0]) : null;
+}
+
+async function reverseCashSettlementForTrade(db, userId, tradeRow) {
+  const cashTransactionType = Number(tradeRow.net_amount || 0) >= 0 ? "CASH_INFLOW" : "CASH_OUTFLOW";
+  const [cashTxRows] = await db.query(
+    `SELECT *
+     FROM portfolio_transactions
+     WHERE user_id = ?
+       AND account_id = ?
+       AND source_ref = ?
+       AND transaction_type = ?
+       AND trade_date = ?
+       AND trade_currency = ?
+       AND ABS(net_amount - ?) < 0.00000001
+       AND id <> ?
+     ORDER BY created_at DESC, id DESC
+     LIMIT 1`,
+    [
+      userId,
+      tradeRow.account_id,
+      tradeRow.source_ref,
+      cashTransactionType,
+      toDateOnly(tradeRow.trade_date),
+      tradeRow.trade_currency,
+      Number(tradeRow.net_amount || 0),
+      tradeRow.id,
+    ]
+  );
+
+  const cashTx = cashTxRows[0];
+  if (!cashTx) return null;
+
+  const [cashHoldingRows] = await db.query(
+    "SELECT * FROM holdings WHERE id = ? AND user_id = ? LIMIT 1",
+    [cashTx.holding_id, userId]
+  );
+  const cashHoldingRow = cashHoldingRows[0];
+  if (!cashHoldingRow) {
+    await db.query("DELETE FROM portfolio_transactions WHERE id = ? AND user_id = ?", [cashTx.id, userId]);
+    return null;
+  }
+
+  const cashHolding = mapRow(cashHoldingRow);
+  const nextQuantity = Number(cashHolding.quantity || 0) - Number(cashTx.net_amount || 0);
+  const nextFxRate = Number(cashHolding.fxRate || 1) || 1;
+  const nextBookCostTotal = nextQuantity * nextFxRate;
+  const nextStatus = nextQuantity === 0 ? "CLOSED" : "OPEN";
+  const nextClosedAt = nextStatus === "CLOSED" ? toDateOnly(cashTx.trade_date) || getCurrentDateString() : null;
+
+  await db.query(
+    `UPDATE holdings
+     SET quantity = ?,
+         cost_price = 1,
+         current_price = 1,
+         status = ?,
+         closed_at = ?,
+         book_cost_total = ?,
+         fx_rate = ?
+     WHERE id = ? AND user_id = ?`,
+    [nextQuantity, nextStatus, nextClosedAt, nextBookCostTotal, nextFxRate, cashHolding.id, userId]
+  );
+
+  await db.query("DELETE FROM portfolio_transactions WHERE id = ? AND user_id = ?", [cashTx.id, userId]);
+
+  const [updatedRows] = await db.query(
+    "SELECT * FROM holdings WHERE id = ? AND user_id = ? LIMIT 1",
+    [cashHolding.id, userId]
+  );
+  return updatedRows[0] ? mapRow(updatedRows[0]) : null;
+}
+
+async function revertHoldingTrade(db, userId, transactionId) {
+  const [tradeRows] = await db.query(
+    `SELECT *
+     FROM portfolio_transactions
+     WHERE id = ?
+       AND user_id = ?
+     LIMIT 1`,
+    [transactionId, userId]
+  );
+
+  const tradeRow = tradeRows[0];
+  if (!tradeRow) {
+    throw new Error("交易流水不存在");
+  }
+
+  if (!["OPENING_BALANCE", "ADD_POSITION", "REDUCE_POSITION", "CLOSE_POSITION", "SNAPSHOT_ADJUSTMENT"].includes(tradeRow.transaction_type)) {
+    throw new Error("这条流水当前不支持撤销");
+  }
+
+  const [latestRows] = await db.query(
+    `SELECT id
+     FROM portfolio_transactions
+     WHERE user_id = ?
+       AND holding_id = ?
+       AND transaction_type IN ('OPENING_BALANCE', 'ADD_POSITION', 'REDUCE_POSITION', 'CLOSE_POSITION', 'SNAPSHOT_ADJUSTMENT')
+     ORDER BY trade_date DESC, created_at DESC, id DESC
+     LIMIT 1`,
+    [userId, tradeRow.holding_id]
+  );
+
+  if (!latestRows[0] || latestRows[0].id !== transactionId) {
+    throw new Error("为避免账本错乱，目前只支持撤销该持仓的最新一笔交易");
+  }
+
+  const relatedHoldings = [];
+
+  if (tradeRow.transaction_type === "SNAPSHOT_ADJUSTMENT") {
+    const metadata = parseMetadataJson(tradeRow.metadata_json) || {};
+    const previousSnapshot = metadata?.previousSnapshot;
+    if (!previousSnapshot) {
+      throw new Error("这条快照调整缺少回滚所需的历史快照");
+    }
+
+    const [holdingRows] = await db.query(
+      "SELECT * FROM holdings WHERE id = ? AND user_id = ? LIMIT 1",
+      [tradeRow.holding_id, userId]
+    );
+    if (!holdingRows[0]) {
+      throw new Error("Holding not found");
+    }
+
+    const currentHolding = mapRow(holdingRows[0]);
+    const revertedHolding = normalizeHolding({
+      ...previousSnapshot,
+      id: currentHolding.id,
+    });
+    const refs = await ensureLedgerRefsForHolding(userId, revertedHolding, db);
+    const status = inferHoldingStatus(revertedHolding);
+    const closedAt = status === "CLOSED" ? (previousSnapshot.closedAt || currentHolding.closedAt || new Date()) : null;
+    const enrichedHolding = {
+      ...revertedHolding,
+      userId,
+      ...refs,
+      status,
+      openedAt: toMysqlDateTime(previousSnapshot.openedAt || currentHolding.openedAt || holdingRows[0].created_at || new Date()),
+      closedAt: toMysqlDateTime(closedAt),
+      bookCostTotal: computeHoldingBookCost(revertedHolding),
+      realizedPnlTotal: currentHolding.realizedPnlTotal || 0,
+    };
+
+    await db.query(
+      `UPDATE holdings SET
+        portfolio_id = :portfolioId,
+        account_id = :accountId,
+        instrument_id = :instrumentId,
+        asset_type = :assetType,
+        position_side = :positionSide,
+        platform = :platform,
+        market = :market,
+        symbol = :symbol,
+        name = :name,
+        currency = :currency,
+        quantity = :quantity,
+        cost_price = :costPrice,
+        current_price = :currentPrice,
+        fx_rate = :fxRate,
+        target_allocation = :targetAllocation,
+        notes = :notes,
+        underlying = :underlying,
+        option_type = :optionType,
+        strike_price = :strikePrice,
+        expiry_date = :expiryDate,
+        contract_multiplier = :contractMultiplier,
+        status = :status,
+        opened_at = :openedAt,
+        closed_at = :closedAt,
+        book_cost_total = :bookCostTotal,
+        realized_pnl_total = :realizedPnlTotal
+      WHERE id = :id AND user_id = :userId`,
+      enrichedHolding
+    );
+
+    await db.query("DELETE FROM portfolio_transactions WHERE id = ? AND user_id = ?", [transactionId, userId]);
+
+    const [updatedRows] = await db.query(
+      "SELECT * FROM holdings WHERE id = ? AND user_id = ? LIMIT 1",
+      [tradeRow.holding_id, userId]
+    );
+
+    return {
+      revertedTransactionId: transactionId,
+      transactionType: tradeRow.transaction_type,
+      holding: updatedRows[0] ? mapRow(updatedRows[0]) : null,
+      relatedHoldings,
+    };
+  }
+
+  if (tradeRow.transaction_type === "OPENING_BALANCE") {
+    await db.query(
+      "DELETE FROM position_lots WHERE open_transaction_id = ? AND user_id = ?",
+      [transactionId, userId]
+    );
+    await db.query(
+      "DELETE FROM realized_pnl_ledger WHERE holding_id = ? AND user_id = ?",
+      [tradeRow.holding_id, userId]
+    );
+    await db.query("DELETE FROM portfolio_transactions WHERE id = ? AND user_id = ?", [transactionId, userId]);
+    await db.query("DELETE FROM holdings WHERE id = ? AND user_id = ?", [tradeRow.holding_id, userId]);
+
+    return {
+      revertedTransactionId: transactionId,
+      transactionType: tradeRow.transaction_type,
+      holding: null,
+      deletedHoldingId: tradeRow.holding_id,
+      relatedHoldings,
+    };
+  }
+
+  if (tradeRow.transaction_type === "ADD_POSITION") {
+    await db.query(
+      "DELETE FROM position_lots WHERE open_transaction_id = ? AND user_id = ?",
+      [transactionId, userId]
+    );
+  } else {
+    const [ledgerRows] = await db.query(
+      `SELECT lot_id, quantity_closed
+       FROM realized_pnl_ledger
+       WHERE close_transaction_id = ?
+         AND user_id = ?`,
+      [transactionId, userId]
+    );
+
+    for (const ledgerRow of ledgerRows) {
+      await db.query(
+        `UPDATE position_lots
+         SET remaining_quantity = remaining_quantity + ?,
+             status = 'OPEN',
+             closed_at = NULL
+         WHERE id = ?
+           AND user_id = ?`,
+        [Number(ledgerRow.quantity_closed || 0), ledgerRow.lot_id, userId]
+      );
+    }
+
+    await db.query(
+      "DELETE FROM realized_pnl_ledger WHERE close_transaction_id = ? AND user_id = ?",
+      [transactionId, userId]
+    );
+  }
+
+  const cashHolding = await reverseCashSettlementForTrade(db, userId, tradeRow);
+  if (cashHolding) {
+    relatedHoldings.push(cashHolding);
+  }
+
+  await db.query("DELETE FROM portfolio_transactions WHERE id = ? AND user_id = ?", [transactionId, userId]);
+  const updatedHolding = await recomputeHoldingFromLedger(db, userId, tradeRow.holding_id);
+
+  return {
+    revertedTransactionId: transactionId,
+    transactionType: tradeRow.transaction_type,
+    holding: updatedHolding,
+    relatedHoldings,
+  };
+}
+
 function parseNumber(value) {
   const parsed = Number.parseFloat(value);
   return Number.isFinite(parsed) ? parsed : null;
@@ -1705,6 +2820,20 @@ function toDateOnly(value) {
   }
   const text = String(value);
   return text.length >= 10 ? text.slice(0, 10) : text;
+}
+
+function toMysqlDateTime(value) {
+  if (!value) return null;
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  const seconds = String(date.getSeconds()).padStart(2, "0");
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 }
 
 function getYesterdayDateString() {
@@ -3102,6 +4231,80 @@ app.post("/api/holdings/:id/trades", requireDatabase, authMiddleware, async (req
   }
 });
 
+app.post("/api/holdings/:id/option-settlement", requireDatabase, authMiddleware, async (req, res) => {
+  const connection = await pool.getConnection();
+
+  try {
+    await connection.beginTransaction();
+
+    const [rows] = await connection.query(
+      "SELECT * FROM holdings WHERE id = ? AND user_id = ? LIMIT 1",
+      [req.params.id, req.user.id]
+    );
+
+    if (!rows[0]) {
+      await connection.rollback();
+      return res.status(404).json({ error: "Holding not found" });
+    }
+
+    const result = await processOptionSettlement(connection, req.user.id, rows[0], req.body || {});
+    await connection.commit();
+
+    const relatedHoldingIds = Array.isArray(result.relatedHoldings)
+      ? [...new Set(result.relatedHoldings.map((item) => item?.id).filter(Boolean))]
+      : [];
+    const relatedHoldings = relatedHoldingIds.length
+      ? await Promise.all(
+          relatedHoldingIds.map(async (holdingId) => {
+            const [relatedRows] = await pool.query(
+              "SELECT * FROM holdings WHERE id = ? AND user_id = ? LIMIT 1",
+              [holdingId, req.user.id]
+            );
+            return relatedRows[0] ? mapRow(relatedRows[0]) : null;
+          })
+        )
+      : [];
+
+    res.json({
+      ...result,
+      relatedHoldings: relatedHoldings.filter(Boolean),
+    });
+  } catch (error) {
+    await connection.rollback();
+    res.status(400).json({ error: error.message || "Option settlement failed" });
+  } finally {
+    connection.release();
+  }
+});
+
+app.post("/api/holdings/:id/option-expire", requireDatabase, authMiddleware, async (req, res) => {
+  const connection = await pool.getConnection();
+
+  try {
+    await connection.beginTransaction();
+
+    const [rows] = await connection.query(
+      "SELECT * FROM holdings WHERE id = ? AND user_id = ? LIMIT 1",
+      [req.params.id, req.user.id]
+    );
+
+    if (!rows[0]) {
+      await connection.rollback();
+      return res.status(404).json({ error: "Holding not found" });
+    }
+
+    const result = await processOptionExpiration(connection, req.user.id, rows[0], req.body || {});
+    await connection.commit();
+
+    res.json(result);
+  } catch (error) {
+    await connection.rollback();
+    res.status(400).json({ error: error.message || "Option expiration failed" });
+  } finally {
+    connection.release();
+  }
+});
+
 app.get("/api/transactions", requireDatabase, authMiddleware, async (req, res) => {
   try {
     const limit = Math.min(Math.max(Number(req.query.limit || 200), 1), 1000);
@@ -3159,6 +4362,41 @@ app.get("/api/transactions", requireDatabase, authMiddleware, async (req, res) =
     res.json(rows.map(mapTransactionRow));
   } catch (error) {
     res.status(400).json({ error: error.message || "Transactions lookup failed" });
+  }
+});
+
+app.post("/api/transactions/:id/revert", requireDatabase, authMiddleware, async (req, res) => {
+  const connection = await pool.getConnection();
+
+  try {
+    await connection.beginTransaction();
+    const result = await revertHoldingTrade(connection, req.user.id, req.params.id);
+    await connection.commit();
+
+    const relatedHoldingIds = Array.isArray(result.relatedHoldings)
+      ? [...new Set(result.relatedHoldings.map((item) => item?.id).filter(Boolean))]
+      : [];
+    const relatedHoldings = relatedHoldingIds.length
+      ? await Promise.all(
+          relatedHoldingIds.map(async (holdingId) => {
+            const [rows] = await pool.query(
+              "SELECT * FROM holdings WHERE id = ? AND user_id = ? LIMIT 1",
+              [holdingId, req.user.id]
+            );
+            return rows[0] ? mapRow(rows[0]) : null;
+          })
+        )
+      : [];
+
+    res.json({
+      ...result,
+      relatedHoldings: relatedHoldings.filter(Boolean),
+    });
+  } catch (error) {
+    await connection.rollback();
+    res.status(400).json({ error: error.message || "Transaction revert failed" });
+  } finally {
+    connection.release();
   }
 });
 

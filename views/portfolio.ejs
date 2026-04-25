@@ -11,8 +11,8 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="/styles.css" />
-    <link rel="stylesheet" href="/portfolio-legacy.css" />
-    <link rel="stylesheet" href="/portfolio-bridge.css" />
+    <link rel="stylesheet" href="/portfolio-legacy.css?v=20260425-option-settlement" />
+    <link rel="stylesheet" href="/portfolio-bridge.css?v=20260425-option-settlement" />
   </head>
   <body class="portfolio-page" data-page="<%= page.pageKey %>">
     <% const isTransactionsPage = page.pageKey === "portfolio-transactions"; %>
@@ -125,24 +125,50 @@
           <section id="dashboard" class="dashboard is-hidden">
             <section class="summary-grid <%= (isTransactionsPage || isHistoryPage || isRealizedPnlPage || isReviewPage) ? 'is-hidden' : '' %>">
               <article class="metric-card">
-                <span class="metric-label">总市值</span>
+                <span class="metric-label">总资产</span>
+                <strong id="total-assets" class="metric-value">$0.00</strong>
+                <span class="metric-note">持仓市值 + 现金</span>
+              </article>
+              <article class="metric-card">
+                <span class="metric-label">现金</span>
+                <strong id="total-cash" class="metric-value">$0.00</strong>
+                <span class="metric-note">已单独从持仓市值里拆出</span>
+              </article>
+              <article class="metric-card">
+                <span class="metric-label">持仓市值</span>
                 <strong id="total-market-value" class="metric-value">$0.00</strong>
-                <span class="metric-note">所有平台资产按美元净值汇总展示</span>
+                <span class="metric-note">仅统计非现金持仓</span>
               </article>
               <article class="metric-card">
-                <span class="metric-label">总成本</span>
-                <strong id="total-cost" class="metric-value">$0.00</strong>
-                <span class="metric-note">建仓成本的合计值</span>
-              </article>
-              <article class="metric-card">
-                <span class="metric-label">总盈亏</span>
+                <span class="metric-label">持仓盈亏</span>
                 <strong id="total-pnl" class="metric-value">$0.00</strong>
-                <span id="total-pnl-rate" class="metric-note">收益率 0.00%</span>
+                <span id="total-pnl-rate" class="metric-note">持仓收益率 0.00%</span>
               </article>
-              <article class="metric-card">
-                <span class="metric-label">持仓平台数</span>
-                <strong id="platform-count" class="metric-value">0</strong>
-                <span class="metric-note">股票券商 + 加密平台</span>
+            </section>
+
+            <section class="overview-trend-grid <%= (isTransactionsPage || isHistoryPage || isRealizedPnlPage || isReviewPage) ? 'is-hidden' : '' %>">
+              <article class="card trend-card">
+                <div class="mini-chart-head">
+                  <h3>净值趋势</h3>
+                  <span>总资产</span>
+                </div>
+                <div id="overview-nav-trend" class="sparkline-card empty-state">还没有足够的净值快照。</div>
+              </article>
+
+              <article class="card trend-card">
+                <div class="mini-chart-head">
+                  <h3>现金趋势</h3>
+                  <span>可用现金</span>
+                </div>
+                <div id="overview-cash-trend" class="sparkline-card empty-state">还没有足够的现金快照。</div>
+              </article>
+
+              <article class="card trend-card">
+                <div class="mini-chart-head">
+                  <h3>盈亏趋势</h3>
+                  <span>总盈亏</span>
+                </div>
+                <div id="overview-pnl-trend" class="sparkline-card empty-state">还没有足够的盈亏快照。</div>
               </article>
             </section>
 
@@ -171,6 +197,24 @@
                   <h2>仓位洞察</h2>
                   <p>资产类别、平台和目标仓位偏差</p>
                 </div>
+
+                <section class="mini-chart-grid">
+                  <article class="mini-chart-card">
+                    <div class="mini-chart-head">
+                      <h3>资产分布图</h3>
+                      <span>按市值</span>
+                    </div>
+                    <div id="asset-allocation-chart" class="mini-chart empty-state">暂无图表数据</div>
+                  </article>
+
+                  <article class="mini-chart-card">
+                    <div class="mini-chart-head">
+                      <h3>平台分布图</h3>
+                      <span>按市值</span>
+                    </div>
+                    <div id="platform-allocation-chart" class="mini-chart empty-state">暂无图表数据</div>
+                  </article>
+                </section>
 
                 <div class="insight-group">
                   <h3>资产类别分布</h3>
@@ -319,12 +363,13 @@
                       <th>成交价</th>
                       <th>净额</th>
                       <th>已实现盈亏</th>
-                      <th>备注</th>
+                      <th>来源</th>
+                      <th>操作</th>
                     </tr>
                   </thead>
                   <tbody id="transactions-table-body">
                     <tr>
-                      <td colspan="10" class="empty-row">登录后这里会显示你的交易流水。</td>
+                      <td colspan="11" class="empty-row">登录后这里会显示你的交易流水。</td>
                     </tr>
                   </tbody>
                 </table>
@@ -383,6 +428,14 @@
                 <h2>已实现盈亏</h2>
                 <p>每一条记录都来自已实现盈亏台账，方便按日期、平台和标的查看真正落袋的结果。</p>
               </div>
+
+              <section class="mini-chart-card section-chart">
+                <div class="mini-chart-head">
+                  <h3>已实现盈亏分布</h3>
+                  <span>按交易</span>
+                </div>
+                <div id="realized-pnl-chart" class="mini-chart empty-state">还没有已实现盈亏图表数据。</div>
+              </section>
 
               <div class="table-wrapper">
                 <table>
@@ -457,6 +510,42 @@
                   <p>先展示当前账本里可以稳定算出来的指标，后面再继续扩展回撤、月度收益等。</p>
                 </div>
                 <div id="review-metrics-list" class="stack-list empty-state"></div>
+              </section>
+
+              <section class="review-analytics-grid">
+                <section class="card table-card">
+                  <div class="card-heading">
+                    <h2>最大回撤</h2>
+                    <p>基于已落库净值快照回看峰值到低点的最大跌幅。</p>
+                  </div>
+                  <div id="review-drawdown-card" class="stack-list empty-state">还没有足够的净值快照来计算最大回撤。</div>
+                </section>
+
+                <section class="card table-card">
+                  <div class="card-heading">
+                    <h2>收益区间</h2>
+                    <p>看当前快照序列里区间收益、最佳日和最差日的波动表现。</p>
+                  </div>
+                  <div id="review-return-band-chart" class="mini-chart empty-state">还没有足够的收益区间图表数据。</div>
+                </section>
+
+                <section class="card table-card review-analytics-wide">
+                  <div class="card-heading">
+                    <h2>资产类型收益对比</h2>
+                    <p>按资产类型汇总总盈亏，对比哪一类资产正在贡献收益，哪一类正在拖累表现。</p>
+                  </div>
+                  <div id="asset-type-pnl-chart" class="mini-chart empty-state">还没有足够的资产类型收益对比数据。</div>
+                </section>
+              </section>
+
+              <section class="card table-card">
+                <div class="card-heading">
+                  <div>
+                    <h2>净值曲线</h2>
+                    <p>用当前已落库的净值快照画出趋势线，历史会从今天开始逐步沉淀。</p>
+                  </div>
+                </div>
+                <div id="nav-series-chart" class="nav-chart empty-state">还没有历史净值曲线，系统会从今天开始持续沉淀。</div>
               </section>
 
               <section class="card table-card">
@@ -715,12 +804,76 @@
               </div>
             </form>
           </section>
+        </div>
+
+        <div id="option-settlement-modal" class="trade-modal is-hidden" aria-hidden="true">
+          <div id="option-settlement-modal-backdrop" class="trade-modal-backdrop"></div>
+          <section class="trade-modal-card card" role="dialog" aria-modal="true" aria-labelledby="option-settlement-modal-title">
+            <div class="card-heading">
+              <h2 id="option-settlement-modal-title">期权结算</h2>
+              <p id="option-settlement-modal-subtitle">把期权结算动作同步到股票、现金和交易流水里</p>
             </div>
-          </div>
+
+            <form id="option-settlement-form" class="holding-form" novalidate>
+              <div class="form-grid">
+                <label>
+                  动作
+                  <input id="option-settlement-action-label" type="text" readonly />
+                </label>
+
+                <label>
+                  期权
+                  <input id="option-settlement-symbol" type="text" readonly />
+                </label>
+
+                <label>
+                  合约张数
+                  <input id="option-settlement-quantity" type="number" min="0" step="any" placeholder="请输入张数" required />
+                </label>
+
+                <label>
+                  交割股数
+                  <input id="option-settlement-share-quantity" type="text" readonly />
+                </label>
+
+                <label>
+                  行权 / 指派价
+                  <input id="option-settlement-strike-price" type="text" readonly />
+                </label>
+
+                <label>
+                  交易日期
+                  <input id="option-settlement-date" type="date" required />
+                </label>
+
+                <label>
+                  手续费
+                  <input id="option-settlement-fee" type="number" min="0" step="any" placeholder="默认 0" />
+                </label>
+
+                <label>
+                  税费
+                  <input id="option-settlement-tax" type="number" min="0" step="any" placeholder="默认 0" />
+                </label>
+
+                <label>
+                  备注
+                  <input id="option-settlement-notes" type="text" placeholder="可选" />
+                </label>
+              </div>
+
+              <p id="option-settlement-form-status" class="sync-status">提交后会自动处理期权结算，并同步股票、现金、lots 和交易流水。</p>
+
+              <div class="form-actions">
+                <button id="option-settlement-submit-btn" type="submit" class="primary-button">确认结算</button>
+                <button id="option-settlement-cancel-btn" type="button" class="ghost-button">取消</button>
+              </div>
+            </form>
+          </section>
         </div>
       </main>
     </div>
 
-    <script src="/portfolio-app.js"></script>
+    <script src="/portfolio-app.js?v=20260425-option-settlement"></script>
   </body>
 </html>

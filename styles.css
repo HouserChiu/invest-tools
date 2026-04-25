@@ -879,12 +879,29 @@ main {
 }
 
 .markdown-content {
+  min-width: 0;
   color: var(--ink);
   line-height: 1.85;
+  overflow-x: auto;
+  overflow-y: visible;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  -webkit-overflow-scrolling: touch;
 }
 
 .markdown-content > * + * {
   margin-top: 14px;
+}
+
+.markdown-content p,
+.markdown-content li,
+.markdown-content blockquote,
+.markdown-content td,
+.markdown-content th,
+.markdown-content code,
+.markdown-content a {
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .markdown-content h1,
@@ -899,6 +916,30 @@ main {
 .markdown-content ol {
   display: grid;
   gap: 8px;
+}
+
+.markdown-content img,
+.markdown-content svg,
+.markdown-content iframe {
+  max-width: 100%;
+  height: auto;
+}
+
+.markdown-content pre,
+.markdown-content table {
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.markdown-content pre {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.markdown-content table {
+  display: block;
+  border-collapse: collapse;
 }
 
 .risk-list {
@@ -1098,6 +1139,10 @@ main {
 
 @media (max-width: 720px) {
   .topbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+    gap: 16px;
     padding: 14px;
   }
 
@@ -1111,7 +1156,16 @@ main {
 
   .topnav {
     width: 100%;
-    justify-content: flex-start;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    justify-content: stretch;
+    gap: 10px;
+  }
+
+  .topnav a {
+    min-width: 0;
+    text-align: center;
+    padding: 12px 10px;
   }
 
   .hero-copy,
@@ -1153,5 +1207,15 @@ main {
   .ghost-button,
   .inline-link {
     width: 100%;
+  }
+
+  .markdown-content {
+    font-size: 0.98rem;
+  }
+}
+
+@media (max-width: 420px) {
+  .topnav {
+    grid-template-columns: minmax(0, 1fr);
   }
 }

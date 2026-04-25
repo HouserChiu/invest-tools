@@ -193,6 +193,8 @@ const holdingsTableBody = document.querySelector("#holdings-table-body");
 const assetAllocation = document.querySelector("#asset-allocation");
 const platformAllocation = document.querySelector("#platform-allocation");
 const allocationGap = document.querySelector("#allocation-gap");
+const assetAllocationChart = document.querySelector("#asset-allocation-chart");
+const platformAllocationChart = document.querySelector("#platform-allocation-chart");
 const allocationTemplate = document.querySelector("#allocation-item-template");
 const syncStatus = document.querySelector("#sync-status");
 const priceLookupStatus = document.querySelector("#price-lookup-status");
@@ -200,8 +202,16 @@ const priceLookupSource = document.querySelector("#price-lookup-source");
 const transactionsTableBody = document.querySelector("#transactions-table-body");
 const closedHoldingsTableBody = document.querySelector("#closed-holdings-table-body");
 const realizedPnlTableBody = document.querySelector("#realized-pnl-table-body");
+const realizedPnlChart = document.querySelector("#realized-pnl-chart");
 const navSeriesTableBody = document.querySelector("#nav-series-table-body");
+const navSeriesChart = document.querySelector("#nav-series-chart");
+const overviewNavTrend = document.querySelector("#overview-nav-trend");
+const overviewCashTrend = document.querySelector("#overview-cash-trend");
+const overviewPnlTrend = document.querySelector("#overview-pnl-trend");
 const reviewMetricsList = document.querySelector("#review-metrics-list");
+const reviewDrawdownCard = document.querySelector("#review-drawdown-card");
+const reviewReturnBandChart = document.querySelector("#review-return-band-chart");
+const assetTypePnlChart = document.querySelector("#asset-type-pnl-chart");
 const reviewTotalNav = document.querySelector("#review-total-nav");
 const reviewRealizedPnl = document.querySelector("#review-realized-pnl");
 const reviewUnrealizedPnl = document.querySelector("#review-unrealized-pnl");
@@ -249,6 +259,21 @@ const tradeNotesInput = document.querySelector("#trade-notes");
 const tradeFormStatus = document.querySelector("#trade-form-status");
 const tradeSubmitBtn = document.querySelector("#trade-submit-btn");
 const tradeCancelBtn = document.querySelector("#trade-cancel-btn");
+const optionSettlementModal = document.querySelector("#option-settlement-modal");
+const optionSettlementModalBackdrop = document.querySelector("#option-settlement-modal-backdrop");
+const optionSettlementForm = document.querySelector("#option-settlement-form");
+const optionSettlementActionLabel = document.querySelector("#option-settlement-action-label");
+const optionSettlementSymbol = document.querySelector("#option-settlement-symbol");
+const optionSettlementQuantityInput = document.querySelector("#option-settlement-quantity");
+const optionSettlementShareQuantity = document.querySelector("#option-settlement-share-quantity");
+const optionSettlementStrikePrice = document.querySelector("#option-settlement-strike-price");
+const optionSettlementDate = document.querySelector("#option-settlement-date");
+const optionSettlementFee = document.querySelector("#option-settlement-fee");
+const optionSettlementTax = document.querySelector("#option-settlement-tax");
+const optionSettlementNotes = document.querySelector("#option-settlement-notes");
+const optionSettlementFormStatus = document.querySelector("#option-settlement-form-status");
+const optionSettlementSubmitBtn = document.querySelector("#option-settlement-submit-btn");
+const optionSettlementCancelBtn = document.querySelector("#option-settlement-cancel-btn");
 
 const fields = {
   id: document.querySelector("#holding-id"),
@@ -299,7 +324,9 @@ let priceLookupTimer = null;
 let priceLookupRequestId = 0;
 let activeTradeHoldingId = null;
 let activeTradeAction = null;
+let activeOptionSettlementHoldingId = null;
 let activeHoldingMode = "create";
+const chartPalette = ["#0fa06f", "#2f6fed", "#e5972f", "#e35d6a", "#7e57c2", "#0f766e", "#a855f7", "#ef4444"];
 const activeTransactionFilters = {
   transactionType: "",
   assetType: "",
@@ -444,9 +471,14 @@ function computeHoldingMetrics(holding) {
 
 function summarizeHoldings(source) {
   const summary = {
+    totalAssets: 0,
     totalCost: 0,
     totalMarketValue: 0,
     totalPnl: 0,
+    cashMarketValue: 0,
+    holdingCost: 0,
+    holdingMarketValue: 0,
+    holdingPnl: 0,
     platformCount: new Set(),
     byAssetType: {},
     byPlatform: {},
@@ -461,12 +493,22 @@ function summarizeHoldings(source) {
     summary.platformCount.add(holding.platform);
     summary.byAssetType[holding.assetType] = (summary.byAssetType[holding.assetType] || 0) + metrics.marketValueBase;
     summary.byPlatform[holding.platform] = (summary.byPlatform[holding.platform] || 0) + metrics.marketValueBase;
+
+    if (holding.assetType === "cash") {
+      summary.cashMarketValue += metrics.marketValueBase;
+    } else {
+      summary.holdingCost += metrics.costValueBase;
+      summary.holdingMarketValue += metrics.marketValueBase;
+      summary.holdingPnl += metrics.pnlBase;
+    }
   });
+
+  summary.totalAssets = summary.holdingMarketValue + summary.cashMarketValue;
 
   source.forEach((holding) => {
     const metrics = computeHoldingMetrics(holding);
     const actualAllocation =
-      summary.totalMarketValue !== 0 ? (metrics.marketValueBase / summary.totalMarketValue) * 100 : 0;
+      summary.totalAssets !== 0 ? (metrics.marketValueBase / summary.totalAssets) * 100 : 0;
     const targetAllocation = toNumber(holding.targetAllocation);
 
     if (targetAllocation > 0) {
@@ -484,16 +526,16 @@ function summarizeHoldings(source) {
 }
 
 function updateSummaryCards(summary) {
-  document.querySelector("#total-market-value").textContent = formatMoney(summary.totalMarketValue);
-  document.querySelector("#total-cost").textContent = formatMoney(summary.totalCost);
+  document.querySelector("#total-assets").textContent = formatMoney(summary.totalAssets);
+  document.querySelector("#total-cash").textContent = formatMoney(summary.cashMarketValue);
+  document.querySelector("#total-market-value").textContent = formatMoney(summary.holdingMarketValue);
 
   const pnlNode = document.querySelector("#total-pnl");
-  pnlNode.textContent = formatMoney(summary.totalPnl);
-  pnlNode.className = `metric-value ${summary.totalPnl >= 0 ? "gain" : "loss"}`;
+  pnlNode.textContent = formatMoney(summary.holdingPnl);
+  pnlNode.className = `metric-value ${summary.holdingPnl >= 0 ? "gain" : "loss"}`;
 
-  const pnlRate = summary.totalCost > 0 ? (summary.totalPnl / summary.totalCost) * 100 : 0;
-  document.querySelector("#total-pnl-rate").textContent = `收益率 ${formatPercent(pnlRate)}`;
-  document.querySelector("#platform-count").textContent = String(summary.platformCount.size);
+  const pnlRate = summary.holdingCost > 0 ? (summary.holdingPnl / summary.holdingCost) * 100 : 0;
+  document.querySelector("#total-pnl-rate").textContent = `持仓收益率 ${formatPercent(pnlRate)}`;
 }
 
 function renderAllocationList(container, items, labelMap, totalMarketValue) {
@@ -514,6 +556,84 @@ function renderAllocationList(container, items, labelMap, totalMarketValue) {
     fragment.querySelector(".stack-value").textContent = formatMoney(value);
     container.appendChild(fragment);
   });
+}
+
+function getChartColor(index) {
+  return chartPalette[index % chartPalette.length];
+}
+
+function renderRingChart(container, items, labelMap, totalMarketValue) {
+  if (!container) return;
+  if (!items.length || !totalMarketValue) {
+    container.className = "mini-chart empty-state";
+    container.textContent = "暂无图表数据";
+    return;
+  }
+
+  const radius = 70;
+  const circumference = 2 * Math.PI * radius;
+  let offset = 0;
+  const slices = items.map(([key, value], index) => {
+    const ratio = Math.abs(value) / Math.abs(totalMarketValue || 1);
+    const length = circumference * ratio;
+    const color = getChartColor(index);
+    const strokeDasharray = `${length} ${Math.max(circumference - length, 0)}`;
+    const strokeDashoffset = -offset;
+    offset += length;
+    return {
+      key,
+      value,
+      ratio,
+      color,
+      strokeDasharray,
+      strokeDashoffset,
+    };
+  });
+
+  container.className = "mini-chart";
+  container.innerHTML = `
+    <div class="ring-chart">
+      <svg class="ring-chart-svg" viewBox="0 0 180 180" aria-hidden="true">
+        <circle cx="90" cy="90" r="${radius}" fill="none" stroke="rgba(19, 27, 46, 0.08)" stroke-width="20"></circle>
+        ${slices
+          .map(
+            (slice) => `
+              <circle
+                cx="90"
+                cy="90"
+                r="${radius}"
+                fill="none"
+                stroke="${slice.color}"
+                stroke-width="20"
+                stroke-linecap="butt"
+                stroke-dasharray="${slice.strokeDasharray}"
+                stroke-dashoffset="${slice.strokeDashoffset}"
+                transform="rotate(-90 90 90)"
+              ></circle>
+            `
+          )
+          .join("")}
+        <text x="90" y="84" text-anchor="middle" font-size="12" fill="#566274">总市值</text>
+        <text x="90" y="104" text-anchor="middle" font-size="16" font-weight="700" fill="#131b2e">${formatMoney(totalMarketValue)}</text>
+      </svg>
+      <div class="ring-chart-legend">
+        ${slices
+          .map(
+            (slice) => `
+              <article class="ring-legend-item">
+                <span class="ring-legend-dot" style="background:${slice.color}"></span>
+                <div class="ring-legend-label">
+                  <strong>${escapeHtml(labelMap[slice.key] || slice.key)}</strong>
+                  <span>占比 ${(slice.ratio * 100).toFixed(2)}%</span>
+                </div>
+                <strong class="ring-legend-value">${formatMoney(slice.value)}</strong>
+              </article>
+            `
+          )
+          .join("")}
+      </div>
+    </div>
+  `;
 }
 
 function renderGapList(gaps) {
@@ -539,6 +659,45 @@ function renderGapList(gaps) {
     `;
     allocationGap.appendChild(article);
   });
+}
+
+function renderRealizedPnlChart() {
+  if (!realizedPnlChart) return;
+  const rows = getFilteredRealizedPnl()
+    .slice()
+    .sort((a, b) => Math.abs(b.realizedPnlUsd || 0) - Math.abs(a.realizedPnlUsd || 0))
+    .slice(0, 8);
+
+  if (!rows.length) {
+    realizedPnlChart.className = "mini-chart empty-state";
+    realizedPnlChart.textContent = "还没有已实现盈亏图表数据。";
+    return;
+  }
+
+  const maxAbs = Math.max(...rows.map((entry) => Math.abs(entry.realizedPnlUsd || 0)), 1);
+  realizedPnlChart.className = "mini-chart";
+  realizedPnlChart.innerHTML = `
+    <div class="pnl-bar-chart">
+      ${rows
+        .map((entry) => {
+          const value = Number(entry.realizedPnlUsd || 0);
+          const width = `${(Math.abs(value) / maxAbs) * 50}%`;
+          return `
+            <article class="pnl-bar-row">
+              <div class="pnl-bar-label">
+                <strong>${escapeHtml(entry.symbol || "-")}</strong>
+                <span>${formatDate(entry.recognizedDate)}</span>
+              </div>
+              <div class="pnl-bar-track">
+                <span class="pnl-bar-fill ${value >= 0 ? "gain" : "loss"}" style="width:${width}"></span>
+              </div>
+              <strong class="pnl-bar-value ${value >= 0 ? "gain" : "loss"}">${formatMoney(value)}</strong>
+            </article>
+          `;
+        })
+        .join("")}
+    </div>
+  `;
 }
 
 function getFilteredHoldings(source = holdings) {
@@ -569,6 +728,16 @@ function getTransactionTypeLabel(value) {
           ? "减仓"
           : value === "CLOSE_POSITION"
             ? "清仓"
+            : value === "OPTION_EXERCISE"
+              ? "期权行权"
+            : value === "OPTION_ASSIGNMENT"
+                ? "期权指派"
+                : value === "OPTION_EXPIRE"
+                  ? "到期作废"
+                : value === "OPTION_STOCK_IN"
+                  ? "交割入股"
+                  : value === "OPTION_STOCK_OUT"
+                    ? "交割卖股"
             : value === "CASH_INFLOW"
               ? "现金流入"
               : value === "CASH_OUTFLOW"
@@ -747,6 +916,8 @@ function renderTable(summary) {
           <td>${allocation.toFixed(2)}%</td>
           <td>
             <div class="table-actions">
+              ${holding.status !== "CLOSED" && holding.assetType === "option" ? `<button class="inline-button" data-action="option-expire" data-id="${holding.id}">到期</button>` : ""}
+              ${holding.status !== "CLOSED" && holding.assetType === "option" ? `<button class="inline-button" data-action="option-settlement" data-id="${holding.id}">${holding.positionSide === "short" ? "指派" : "行权"}</button>` : ""}
               ${holding.status !== "CLOSED" ? `<button class="inline-button" data-action="add-position" data-id="${holding.id}">加仓</button>` : ""}
               ${holding.status !== "CLOSED" && holding.assetType !== "cash" ? `<button class="inline-button" data-action="reduce-position" data-id="${holding.id}">减仓</button>` : ""}
               ${holding.status !== "CLOSED" ? `<button class="inline-button" data-action="close-position" data-id="${holding.id}">清仓</button>` : ""}
@@ -769,7 +940,7 @@ function renderTransactionsTable() {
   if (!rows.length) {
     transactionsTableBody.innerHTML = `
       <tr>
-        <td colspan="10" class="empty-row">还没有交易流水，先做一次加仓、减仓或清仓后，这里就会开始累积记录。</td>
+        <td colspan="11" class="empty-row">还没有交易流水，先做一次加仓、减仓或清仓后，这里就会开始累积记录。</td>
       </tr>
     `;
     return;
@@ -797,6 +968,13 @@ function renderTransactionsTable() {
         <td class="${transaction.netAmount >= 0 ? "gain" : "loss"}">${transaction.tradeCurrency ? `${transaction.netAmount.toFixed(2)} ${transaction.tradeCurrency}` : transaction.netAmount.toFixed(2)}</td>
         <td class="${transaction.realizedPnlAmount >= 0 ? "gain" : "loss"}">${formatMoney(transaction.realizedPnlAmount || 0)}</td>
         <td>${transaction.sourceRef || "-"}</td>
+        <td>
+          ${
+            ["OPENING_BALANCE", "ADD_POSITION", "REDUCE_POSITION", "CLOSE_POSITION", "SNAPSHOT_ADJUSTMENT"].includes(transaction.transactionType)
+              ? `<button class="inline-button delete" data-action="revert-transaction" data-id="${transaction.id}">撤销</button>`
+              : "-"
+          }
+        </td>
       </tr>
     `)
     .join("");
@@ -930,6 +1108,296 @@ function renderReviewMetricsSection() {
     .join("");
 }
 
+function buildLinePath(points, width, height, padding) {
+  if (!points.length) return "";
+  const values = points.map((point) => point.value);
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min || 1;
+  const stepX = points.length > 1 ? (width - padding * 2) / (points.length - 1) : 0;
+
+  return points
+    .map((point, index) => {
+      const x = padding + stepX * index;
+      const y = height - padding - ((point.value - min) / range) * (height - padding * 2);
+      return `${index === 0 ? "M" : "L"}${x.toFixed(2)},${y.toFixed(2)}`;
+    })
+    .join(" ");
+}
+
+function computeNavStats(series = navSeries) {
+  const sorted = [...series]
+    .filter((entry) => entry && entry.snapshotDate)
+    .sort((a, b) => String(a.snapshotDate || "").localeCompare(String(b.snapshotDate || "")));
+
+  if (!sorted.length) {
+    return {
+      sorted,
+      maxDrawdownPct: 0,
+      maxDrawdownValue: 0,
+      peakDate: null,
+      troughDate: null,
+      periodReturnPct: 0,
+      bestDayReturnPct: 0,
+      worstDayReturnPct: 0,
+    };
+  }
+
+  let peak = Number(sorted[0].navUsd || 0);
+  let peakDate = sorted[0].snapshotDate;
+  let maxDrawdownPct = 0;
+  let maxDrawdownValue = 0;
+  let troughDate = sorted[0].snapshotDate;
+  let bestDayReturnPct = -Infinity;
+  let worstDayReturnPct = Infinity;
+
+  sorted.forEach((entry, index) => {
+    const nav = Number(entry.navUsd || 0);
+    if (nav > peak) {
+      peak = nav;
+      peakDate = entry.snapshotDate;
+    }
+
+    const drawdownValue = peak - nav;
+    const drawdownPct = peak > 0 ? (drawdownValue / peak) * 100 : 0;
+    if (drawdownPct > maxDrawdownPct) {
+      maxDrawdownPct = drawdownPct;
+      maxDrawdownValue = drawdownValue;
+      troughDate = entry.snapshotDate;
+    }
+
+    if (index > 0) {
+      const prev = Number(sorted[index - 1].navUsd || 0);
+      const returnPct = prev > 0 ? ((nav - prev) / prev) * 100 : 0;
+      bestDayReturnPct = Math.max(bestDayReturnPct, returnPct);
+      worstDayReturnPct = Math.min(worstDayReturnPct, returnPct);
+    }
+  });
+
+  const first = Number(sorted[0].navUsd || 0);
+  const last = Number(sorted.at(-1)?.navUsd || 0);
+  const periodReturnPct = first > 0 ? ((last - first) / first) * 100 : 0;
+
+  return {
+    sorted,
+    maxDrawdownPct,
+    maxDrawdownValue,
+    peakDate,
+    troughDate,
+    periodReturnPct,
+    bestDayReturnPct: Number.isFinite(bestDayReturnPct) ? bestDayReturnPct : 0,
+    worstDayReturnPct: Number.isFinite(worstDayReturnPct) ? worstDayReturnPct : 0,
+  };
+}
+
+function renderSparkline(container, series, key, label) {
+  if (!container) return;
+  const sorted = [...series]
+    .filter((entry) => entry && entry.snapshotDate)
+    .sort((a, b) => String(a.snapshotDate || "").localeCompare(String(b.snapshotDate || "")));
+
+  if (sorted.length < 2) {
+    container.className = "sparkline-card empty-state";
+    container.textContent = `还没有足够的${label}快照。`;
+    return;
+  }
+
+  const points = sorted.map((entry) => ({
+    label: formatDate(entry.snapshotDate),
+    value: Number(entry[key] || 0),
+  }));
+  const width = 320;
+  const height = 100;
+  const padding = 10;
+  const path = buildLinePath(points, width, height, padding);
+  const first = points[0].value;
+  const last = points.at(-1)?.value || 0;
+  const delta = last - first;
+
+  container.className = "sparkline-card";
+  container.innerHTML = `
+    <svg class="sparkline-svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" aria-hidden="true">
+      <path d="${path}" fill="none" stroke="${delta >= 0 ? "#0fa06f" : "#e35d6a"}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></path>
+    </svg>
+    <div class="sparkline-meta">
+      <div class="sparkline-meta-block">
+        <span>起点</span>
+        <strong>${formatMoney(first)}</strong>
+      </div>
+      <div class="sparkline-meta-block">
+        <span>最新</span>
+        <strong>${formatMoney(last)}</strong>
+      </div>
+      <div class="sparkline-meta-block">
+        <span>变化</span>
+        <strong class="${delta >= 0 ? "gain" : "loss"}">${formatMoney(delta)}</strong>
+      </div>
+    </div>
+  `;
+}
+
+function renderNavSeriesChart() {
+  if (!navSeriesChart) return;
+  if (!navSeries.length) {
+    navSeriesChart.className = "nav-chart empty-state";
+    navSeriesChart.textContent = "还没有历史净值曲线，系统会从今天开始持续沉淀。";
+    return;
+  }
+
+  const sorted = [...navSeries].sort((a, b) => String(a.snapshotDate || "").localeCompare(String(b.snapshotDate || "")));
+  const points = sorted.map((entry) => ({
+    label: formatDate(entry.snapshotDate),
+    value: Number(entry.navUsd || 0),
+  }));
+  const width = 760;
+  const height = 240;
+  const padding = 26;
+  const path = buildLinePath(points, width, height, padding);
+  const values = points.map((point) => point.value);
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+
+  navSeriesChart.className = "nav-chart";
+  navSeriesChart.innerHTML = `
+    <svg class="nav-chart-svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" aria-hidden="true">
+      <defs>
+        <linearGradient id="navLine" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stop-color="#2f6fed"></stop>
+          <stop offset="100%" stop-color="#0fa06f"></stop>
+        </linearGradient>
+      </defs>
+      <line x1="${padding}" y1="${height - padding}" x2="${width - padding}" y2="${height - padding}" stroke="rgba(19,27,46,0.08)" stroke-width="1"></line>
+      <line x1="${padding}" y1="${padding}" x2="${padding}" y2="${height - padding}" stroke="rgba(19,27,46,0.08)" stroke-width="1"></line>
+      <path d="${path}" fill="none" stroke="url(#navLine)" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"></path>
+    </svg>
+    <div class="nav-chart-meta">
+      <span>最低净值 ${formatMoney(min)}</span>
+      <span>最高净值 ${formatMoney(max)}</span>
+      <span>最新净值 ${formatMoney(points.at(-1)?.value || 0)}</span>
+    </div>
+  `;
+}
+
+function renderReviewDrawdownCard() {
+  if (!reviewDrawdownCard) return;
+  const stats = computeNavStats();
+  if (stats.sorted.length < 2) {
+    reviewDrawdownCard.className = "stack-list empty-state";
+    reviewDrawdownCard.textContent = "还没有足够的净值快照来计算最大回撤。";
+    return;
+  }
+
+  reviewDrawdownCard.className = "stack-list";
+  reviewDrawdownCard.innerHTML = `
+    <article class="stack-item">
+      <div>
+        <strong class="stack-title">最大回撤</strong>
+        <span class="stack-caption">从 ${formatDate(stats.peakDate)} 到 ${formatDate(stats.troughDate)}</span>
+      </div>
+      <strong class="stack-value loss">${formatPercent(stats.maxDrawdownPct)}</strong>
+    </article>
+    <article class="stack-item">
+      <div>
+        <strong class="stack-title">回撤金额</strong>
+        <span class="stack-caption">峰值净值到低点净值的回落幅度</span>
+      </div>
+      <strong class="stack-value loss">${formatMoney(stats.maxDrawdownValue)}</strong>
+    </article>
+  `;
+}
+
+function renderReturnBandChart() {
+  if (!reviewReturnBandChart) return;
+  const stats = computeNavStats();
+  if (stats.sorted.length < 2) {
+    reviewReturnBandChart.className = "mini-chart empty-state";
+    reviewReturnBandChart.textContent = "还没有足够的收益区间图表数据。";
+    return;
+  }
+
+  const items = [
+    { title: "区间收益", caption: "首个快照到最新快照", value: stats.periodReturnPct },
+    { title: "最佳日收益", caption: "单日净值变动最大正值", value: stats.bestDayReturnPct },
+    { title: "最差日收益", caption: "单日净值变动最大负值", value: stats.worstDayReturnPct },
+  ];
+  const maxAbs = Math.max(...items.map((item) => Math.abs(item.value)), 1);
+
+  reviewReturnBandChart.className = "mini-chart";
+  reviewReturnBandChart.innerHTML = `
+    <div class="pnl-bar-chart">
+      ${items
+        .map((item) => {
+          const width = `${(Math.abs(item.value) / maxAbs) * 50}%`;
+          return `
+            <article class="pnl-bar-row">
+              <div class="pnl-bar-label">
+                <strong>${item.title}</strong>
+                <span>${item.caption}</span>
+              </div>
+              <div class="pnl-bar-track">
+                <span class="pnl-bar-fill ${item.value >= 0 ? "gain" : "loss"}" style="width:${width}"></span>
+              </div>
+              <strong class="pnl-bar-value ${item.value >= 0 ? "gain" : "loss"}">${formatPercent(item.value)}</strong>
+            </article>
+          `;
+        })
+        .join("")}
+    </div>
+  `;
+}
+
+function renderAssetTypePnlChart() {
+  if (!assetTypePnlChart) return;
+
+  const totals = new Map();
+  holdings.forEach((holding) => {
+    const key = holding.assetType || "unknown";
+    const current = totals.get(key) || 0;
+    totals.set(key, current + computeHoldingMetrics(holding).pnlBase);
+  });
+
+  realizedPnlEntries.forEach((entry) => {
+    const key = entry.assetType || "unknown";
+    const current = totals.get(key) || 0;
+    totals.set(key, current + Number(entry.realizedPnlUsd || 0));
+  });
+
+  const rows = [...totals.entries()]
+    .map(([assetType, pnl]) => ({ assetType, pnl }))
+    .filter((item) => Math.abs(item.pnl) > 0)
+    .sort((a, b) => Math.abs(b.pnl) - Math.abs(a.pnl));
+
+  if (!rows.length) {
+    assetTypePnlChart.className = "mini-chart empty-state";
+    assetTypePnlChart.textContent = "还没有足够的资产类型收益对比数据。";
+    return;
+  }
+
+  const maxAbs = Math.max(...rows.map((item) => Math.abs(item.pnl)), 1);
+  assetTypePnlChart.className = "mini-chart";
+  assetTypePnlChart.innerHTML = `
+    <div class="pnl-bar-chart">
+      ${rows
+        .map((item) => {
+          const width = `${(Math.abs(item.pnl) / maxAbs) * 50}%`;
+          return `
+            <article class="pnl-bar-row">
+              <div class="pnl-bar-label">
+                <strong>${getAssetTypeLabel(item.assetType)}</strong>
+                <span>已实现 + 未实现</span>
+              </div>
+              <div class="pnl-bar-track">
+                <span class="pnl-bar-fill ${item.pnl >= 0 ? "gain" : "loss"}" style="width:${width}"></span>
+              </div>
+              <strong class="pnl-bar-value ${item.pnl >= 0 ? "gain" : "loss"}">${formatMoney(item.pnl)}</strong>
+            </article>
+          `;
+        })
+        .join("")}
+    </div>
+  `;
+}
+
 function renderNavSeriesTable() {
   if (!navSeriesTableBody) return;
   if (!navSeries.length) {
@@ -963,12 +1431,22 @@ function renderDashboard() {
   renderFilters();
   renderAllocationList(assetAllocation, Object.entries(summary.byAssetType), { stock: "股票", option: "期权", cash: "现金", crypto: "加密货币", macro: "贵金属 / 外汇" }, summary.totalMarketValue);
   renderAllocationList(platformAllocation, Object.entries(summary.byPlatform), {}, summary.totalMarketValue);
+  renderRingChart(assetAllocationChart, Object.entries(summary.byAssetType), { stock: "股票", option: "期权", cash: "现金", crypto: "加密货币", macro: "贵金属 / 外汇" }, summary.totalMarketValue);
+  renderRingChart(platformAllocationChart, Object.entries(summary.byPlatform), {}, summary.totalMarketValue);
   renderGapList(summary.gaps);
+  renderSparkline(overviewNavTrend, navSeries, "navUsd", "净值");
+  renderSparkline(overviewCashTrend, navSeries, "cashUsd", "现金");
+  renderSparkline(overviewPnlTrend, navSeries, "totalPnlUsd", "盈亏");
   renderTable(summary);
   renderTransactionsTable();
   renderClosedHoldingsTable();
   renderRealizedPnlTable();
+  renderRealizedPnlChart();
   renderReviewMetricsSection();
+  renderReviewDrawdownCard();
+  renderReturnBandChart();
+  renderAssetTypePnlChart();
+  renderNavSeriesChart();
   renderNavSeriesTable();
 }
 
@@ -1479,12 +1957,150 @@ async function submitHoldingTrade(holding, payload) {
   return result;
 }
 
+async function submitOptionSettlement(holding, payload) {
+  const result = await request(`/api/holdings/${holding.id}/option-settlement`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+
+  if (Array.isArray(result?.relatedHoldings)) {
+    result.relatedHoldings.forEach((relatedHolding) => {
+      if (!relatedHolding?.id) return;
+      const relatedIndex = holdings.findIndex((item) => item.id === relatedHolding.id);
+      if (relatedIndex >= 0) {
+        holdings[relatedIndex] = relatedHolding;
+      } else {
+        holdings.unshift(relatedHolding);
+      }
+    });
+  }
+
+  if (result?.holding) {
+    const index = holdings.findIndex((item) => item.id === holding.id);
+    if (index >= 0) {
+      holdings[index] = result.holding;
+    } else {
+      holdings.unshift(result.holding);
+    }
+  }
+
+  transactions = await request("/api/transactions");
+  realizedPnlEntries = await request("/api/realized-pnl");
+  reviewMetrics = await request("/api/review-metrics");
+  navSeries = await request("/api/nav-series");
+  renderDashboard();
+
+  return result;
+}
+
+async function submitOptionExpiration(holding, payload) {
+  const result = await request(`/api/holdings/${holding.id}/option-expire`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+
+  if (result?.holding) {
+    const index = holdings.findIndex((item) => item.id === holding.id);
+    if (index >= 0) {
+      holdings[index] = result.holding;
+    } else {
+      holdings.unshift(result.holding);
+    }
+  }
+
+  transactions = await request("/api/transactions");
+  realizedPnlEntries = await request("/api/realized-pnl");
+  reviewMetrics = await request("/api/review-metrics");
+  navSeries = await request("/api/nav-series");
+  renderDashboard();
+
+  return result;
+}
+
+async function revertHoldingTransaction(transaction) {
+  const result = await request(`/api/transactions/${transaction.id}/revert`, {
+    method: "POST",
+  });
+
+  if (result?.deletedHoldingId) {
+    holdings = holdings.filter((item) => item.id !== result.deletedHoldingId);
+  }
+
+  if (Array.isArray(result?.relatedHoldings)) {
+    result.relatedHoldings.forEach((relatedHolding) => {
+      if (!relatedHolding?.id) return;
+      const relatedIndex = holdings.findIndex((item) => item.id === relatedHolding.id);
+      if (relatedIndex >= 0) {
+        holdings[relatedIndex] = relatedHolding;
+      } else {
+        holdings.unshift(relatedHolding);
+      }
+    });
+  }
+
+  if (result?.holding?.id) {
+    const index = holdings.findIndex((item) => item.id === result.holding.id);
+    if (index >= 0) {
+      holdings[index] = result.holding;
+    } else {
+      holdings.unshift(result.holding);
+    }
+  }
+
+  transactions = await request("/api/transactions");
+  realizedPnlEntries = await request("/api/realized-pnl");
+  reviewMetrics = await request("/api/review-metrics");
+  navSeries = await request("/api/nav-series");
+  renderDashboard();
+
+  return result;
+}
+
 function closeTradeModal() {
   activeTradeHoldingId = null;
   activeTradeAction = null;
   tradeForm?.reset();
   tradeModal?.classList.add("is-hidden");
   tradeModal?.setAttribute("aria-hidden", "true");
+}
+
+function setOptionSettlementStatus(message, tone = "") {
+  if (!optionSettlementFormStatus) return;
+  optionSettlementFormStatus.textContent = message;
+  optionSettlementFormStatus.className = `sync-status ${tone}`.trim();
+}
+
+function closeOptionSettlementModal() {
+  activeOptionSettlementHoldingId = null;
+  optionSettlementForm?.reset();
+  optionSettlementModal?.classList.add("is-hidden");
+  optionSettlementModal?.setAttribute("aria-hidden", "true");
+}
+
+function openOptionSettlementModal(holding) {
+  activeOptionSettlementHoldingId = holding.id;
+  const isAssignment = holding.positionSide === "short";
+  const actionLabel = isAssignment ? "被指派" : "行权";
+  const shareQuantity = Number(holding.quantity || 0) * (Number(holding.contractMultiplier || 1) || 1);
+
+  optionSettlementActionLabel.value = `${actionLabel} ${(holding.optionType || "call").toUpperCase()}`;
+  optionSettlementSymbol.value = `${holding.symbol} · 标的 ${holding.underlying}`;
+  optionSettlementQuantityInput.value = String(holding.quantity || "");
+  optionSettlementShareQuantity.value = String(shareQuantity || 0);
+  optionSettlementStrikePrice.value = `${holding.strikePrice || 0} ${holding.currency}`;
+  optionSettlementDate.value = getTodayInShanghai();
+  optionSettlementFee.value = "";
+  optionSettlementTax.value = "";
+  optionSettlementNotes.value = "";
+  setOptionSettlementStatus(
+    isAssignment
+      ? "提交后会按被指派逻辑同步股票交割、现金变动和账本。"
+      : "提交后会按行权逻辑同步股票交割、现金变动和账本。"
+  );
+
+  optionSettlementModal.classList.remove("is-hidden");
+  optionSettlementModal.setAttribute("aria-hidden", "false");
+  window.setTimeout(() => optionSettlementQuantityInput?.focus(), 0);
 }
 
 function openTradeModal(holding, action) {
@@ -1746,6 +2362,41 @@ holdingsTableBody.addEventListener("click", (event) => {
     openTradeModal(target, "close");
   }
 
+  if (action === "option-settlement") {
+    openOptionSettlementModal(target);
+  }
+
+  if (action === "option-expire") {
+    const confirmed = window.confirm(
+      `确定把 ${target.symbol} 标记为到期作废吗？\n\n这会关闭对应期权持仓，并把剩余未实现盈亏转成已实现盈亏。不会新增一笔现金流。`
+    );
+    if (!confirmed) return;
+
+    request(`/api/holdings/${target.id}/option-expire`, {
+      method: "POST",
+      body: JSON.stringify({
+        quantity: target.quantity,
+        tradeDate: getTodayInShanghai(),
+        notes: "到期作废",
+      }),
+    })
+      .then(async (result) => {
+        if (result?.holding) {
+          const index = holdings.findIndex((item) => item.id === target.id);
+          if (index >= 0) {
+            holdings[index] = result.holding;
+          }
+        }
+        transactions = await request("/api/transactions");
+        realizedPnlEntries = await request("/api/realized-pnl");
+        reviewMetrics = await request("/api/review-metrics");
+        navSeries = await request("/api/nav-series");
+        renderDashboard();
+        setSyncStatus(`${target.symbol} 已按到期作废处理。`, "success");
+      })
+      .catch((error) => window.alert(error.message || "期权到期处理失败"));
+  }
+
   if (action === "delete") {
     request(`/api/holdings/${id}`, { method: "DELETE" })
       .then(async () => {
@@ -1840,8 +2491,61 @@ tradeForm?.addEventListener("submit", async (event) => {
   }
 });
 
+optionSettlementQuantityInput?.addEventListener("input", () => {
+  const holding = holdings.find((item) => item.id === activeOptionSettlementHoldingId);
+  if (!holding) return;
+  const contracts = Number(optionSettlementQuantityInput.value || 0);
+  const shareQuantity = Number.isFinite(contracts) ? contracts * (Number(holding.contractMultiplier || 1) || 1) : 0;
+  optionSettlementShareQuantity.value = String(shareQuantity || 0);
+});
+
+optionSettlementForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+
+  const holding = holdings.find((item) => item.id === activeOptionSettlementHoldingId);
+  if (!holding) {
+    closeOptionSettlementModal();
+    return;
+  }
+
+  const quantity = Number(optionSettlementQuantityInput.value);
+  const feeAmount = Number(optionSettlementFee.value || 0);
+  const taxAmount = Number(optionSettlementTax.value || 0);
+
+  if (!Number.isFinite(quantity) || quantity <= 0) {
+    setOptionSettlementStatus("合约张数必须大于 0。", "warning");
+    return;
+  }
+
+  optionSettlementSubmitBtn.disabled = true;
+  setOptionSettlementStatus("正在处理期权结算并同步股票、现金和账本...", "");
+
+  try {
+    const result = await submitOptionSettlement(holding, {
+      action: holding.positionSide === "short" ? "assignment" : "exercise",
+      quantity,
+      tradeDate: optionSettlementDate.value || getTodayInShanghai(),
+      feeAmount: Number.isFinite(feeAmount) ? feeAmount : 0,
+      taxAmount: Number.isFinite(taxAmount) ? taxAmount : 0,
+      notes: optionSettlementNotes.value.trim(),
+    });
+
+    setSyncStatus(
+      `${holding.symbol} 已完成${holding.positionSide === "short" ? "指派" : "行权"}，同步了 ${result.shareQuantity || 0} 股标的资产。`,
+      "success"
+    );
+    closeOptionSettlementModal();
+  } catch (error) {
+    setOptionSettlementStatus(error.message || "期权结算失败", "warning");
+  } finally {
+    optionSettlementSubmitBtn.disabled = false;
+  }
+});
+
 tradeCancelBtn?.addEventListener("click", closeTradeModal);
 tradeModalBackdrop?.addEventListener("click", closeTradeModal);
+optionSettlementCancelBtn?.addEventListener("click", closeOptionSettlementModal);
+optionSettlementModalBackdrop?.addEventListener("click", closeOptionSettlementModal);
 
 [filterAssetType, filterPlatform, filterMarket].forEach((container, index) => {
   container?.addEventListener("change", (event) => {
@@ -1862,6 +2566,29 @@ tradeModalBackdrop?.addEventListener("click", closeTradeModal);
 txSearch?.addEventListener("input", (event) => {
   activeTransactionFilters.query = event.target.value || "";
   renderTransactionsTable();
+});
+
+transactionsTableBody?.addEventListener("click", async (event) => {
+  const button = event.target.closest("button");
+  if (!button || button.dataset.action !== "revert-transaction") return;
+
+  const transaction = transactions.find((item) => item.id === button.dataset.id);
+  if (!transaction) return;
+
+  const confirmed = window.confirm(
+    `确定要撤销 ${transaction.symbol || "这条"}${getTransactionTypeLabel(transaction.transactionType)}流水吗？\n\n目前只支持撤销该持仓的最新一笔初始录入、加仓、减仓、清仓或快照调整。`
+  );
+  if (!confirmed) return;
+
+  button.disabled = true;
+  try {
+    await revertHoldingTransaction(transaction);
+    setSyncStatus(`${transaction.symbol || "该标的"} 的错误流水已撤销。`, "success");
+  } catch (error) {
+    window.alert(error.message || "撤销失败");
+  } finally {
+    button.disabled = false;
+  }
 });
 
 [closedFilterAssetType, closedFilterPlatform].forEach((container, index) => {
