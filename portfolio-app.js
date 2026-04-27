@@ -700,7 +700,11 @@ function renderRealizedPnlChart() {
   `;
 }
 
-function getFilteredHoldings(source = holdings) {
+function getActiveHoldings(source = holdings) {
+  return source.filter((holding) => holding.status !== "CLOSED" && Number(holding.quantity || 0) !== 0);
+}
+
+function getFilteredHoldings(source = getActiveHoldings()) {
   return source.filter((holding) => {
     if (activeFilters.assetType && activeFilters.assetType !== holding.assetType) return false;
     if (activeFilters.platform && activeFilters.platform !== holding.platform) return false;
@@ -746,9 +750,10 @@ function getTransactionTypeLabel(value) {
 }
 
 function renderFilters() {
-  renderFilterGroup(filterAssetType, holdings.map((holding) => holding.assetType), activeFilters.assetType, getAssetTypeLabel);
-  renderFilterGroup(filterPlatform, holdings.map((holding) => holding.platform), activeFilters.platform);
-  renderFilterGroup(filterMarket, holdings.map((holding) => holding.market), activeFilters.market);
+  const activeHoldings = getActiveHoldings();
+  renderFilterGroup(filterAssetType, activeHoldings.map((holding) => holding.assetType), activeFilters.assetType, getAssetTypeLabel);
+  renderFilterGroup(filterPlatform, activeHoldings.map((holding) => holding.platform), activeFilters.platform);
+  renderFilterGroup(filterMarket, activeHoldings.map((holding) => holding.market), activeFilters.market);
 }
 
 function getFilteredTransactions(source = transactions) {
@@ -831,7 +836,7 @@ function renderTable(summary) {
   if (!filteredHoldings.length) {
     holdingsTableBody.innerHTML = `
       <tr>
-        <td colspan="9" class="empty-row">还没有持仓，先录入一条数据吧。</td>
+        <td colspan="9" class="empty-row">当前没有持仓，已平仓记录可以去“历史已清仓”里查看。</td>
       </tr>
     `;
     return;
@@ -1426,7 +1431,8 @@ function renderNavSeriesTable() {
 }
 
 function renderDashboard() {
-  const summary = summarizeHoldings(holdings);
+  const activeHoldings = getActiveHoldings();
+  const summary = summarizeHoldings(activeHoldings);
   updateSummaryCards(summary);
   renderFilters();
   renderAllocationList(assetAllocation, Object.entries(summary.byAssetType), { stock: "股票", option: "期权", cash: "现金", crypto: "加密货币", macro: "贵金属 / 外汇" }, summary.totalMarketValue);
