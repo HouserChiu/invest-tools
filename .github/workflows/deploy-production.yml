@@ -1,0 +1,116 @@
+name: Deploy Production
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Configure SSH
+        env:
+          PROD_SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
+          PROD_HOST: ${{ secrets.PROD_HOST }}
+          PROD_PORT: ${{ secrets.PROD_PORT }}
+        run: |
+          set -eu
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$PROD_SSH_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -p "${PROD_PORT:-22}" "$PROD_HOST" >> ~/.ssh/known_hosts
+
+      - name: Deploy over SSH
+        env:
+          PROD_HOST: ${{ secrets.PROD_HOST }}
+          PROD_PORT: ${{ secrets.PROD_PORT }}
+          PROD_USER: ${{ secrets.PROD_USER }}
+          PROD_DEPLOY_PATH: ${{ secrets.PROD_DEPLOY_PATH }}
+        run: |
+          set -eu
+          DEPLOY_PATH="${PROD_DEPLOY_PATH:-/var/www/invest-tools}"
+          ssh -i ~/.ssh/id_rsa -p "${PROD_PORT:-22}" "${PROD_USER}@${PROD_HOST}" "DEPLOY_PATH='${DEPLOY_PATH}' bash -s" <<'EOF'
+          set -eu
+          APP_USER="$(stat -c '%U' "$DEPLOY_PATH")"
+
+          if [ ! -d "$DEPLOY_PATH/.git" ]; then
+            sudo -u "$APP_USER" bash <<EOFAPP
+          set -eu
+          cd "$DEPLOY_PATH"
+          git init
+          git remote remove origin >/dev/null 2>&1 || true
+          git remote add origin https://github.com/HouserChiu/invest-tools.git
+          git fetch origin main
+          git update-ref refs/heads/main refs/remotes/origin/main
+          git symbolic-ref HEAD refs/heads/main
+          git reset --mixed main
+          git branch --set-upstream-to=origin/main main
+          EOFAPP
+          fi
+
+          sudo -u "$APP_USER" bash <<EOFAPP
+          set -eu
+          cd "$DEPLOY_PATH"
+
+          # Keep the server's local .env and only refresh tracked code.
+          git fetch origin main
+          git checkout -f main
+          git reset --hard origin/main
+
+          npm ci --omit=dev
+
+          if [ ! -d .venv ]; then
+            python3 -m venv .venv
+          fi
+
+          .venv/bin/pip install --upgrade pip
+          .venv/bin/pip install -r requirements-quote-proxy.txt
+          EOFAPP
+
+          systemctl restart invest-quote-proxy
+          systemctl restart invest-website
+
+          systemctl --no-pager --full status invest-quote-proxy | sed -n '1,25p'
+          systemctl --no-pager --full status invest-website | sed -n '1,25p'
+          EOF
+
+      - name: Verify health endpoints
+        env:
+          PROD_HOST: ${{ secrets.PROD_HOST }}
+          PROD_PORT: ${{ secrets.PROD_PORT }}
+          PROD_USER: ${{ secrets.PROD_USER }}
+        run: |
+          set -eu
+          ssh -i ~/.ssh/id_rsa -p "${PROD_PORT:-22}" "${PROD_USER}@${PROD_HOST}" 'bash -s' <<'EOF'
+          set -eu
+
+          wait_for() {
+            url="$1"
+            attempts="${2:-20}"
+            delay="${3:-2}"
+            i=1
+            while [ "$i" -le "$attempts" ]; do
+              if curl -fsS "$url"; then
+                echo
+                return 0
+              fi
+              sleep "$delay"
+              i=$((i + 1))
+            done
+            return 1
+          }
+
+          wait_for http://127.0.0.1:4173/api/health
+          wait_for http://127.0.0.1:8000/health
+          EOF
