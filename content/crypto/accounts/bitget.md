@@ -41,6 +41,18 @@ Bitget 的注册路径比较轻：
 - 不准备做身份验证的人
 - 所在地区受限制的人
 
+## 邀请码与邀请链接
+
+如需使用邀请码，可填写：
+
+- `2KXD6J7G`
+
+如需使用邀请链接，可通过以下地址进入：
+
+- [https://share.glassgs.com/u/EEMB2BB6](https://share.glassgs.com/u/EEMB2BB6)
+
+如当期有邀请活动或奖励，以 Bitget 实际注册页面显示为准。
+
 ## 官方来源
 
 - Bitget 注册指南  

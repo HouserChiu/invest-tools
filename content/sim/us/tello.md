@@ -102,6 +102,18 @@ Tello 很适合人在美国之外继续保留美国号码。
 - 人在中国大陆或其他国家，仍想收美国短信
 - 想用 eSIM 快速开一条新线
 
+## 邀请码与邀请链接
+
+如需使用邀请码，可填写：
+
+- `P3CHZPJC`
+
+如需使用邀请链接，可通过以下地址进入：
+
+- [https://tello.com/account/register?_referral=P3CHZPJC](https://tello.com/account/register?_referral=P3CHZPJC)
+
+如当期有邀请活动或奖励，以 Tello 实际注册页面显示为准。
+
 ## 官方来源
 
 - Tello Plans  

@@ -46,6 +46,18 @@ Bybit 的开户路径很标准：
 - 不准备做身份验证的人
 - 不愿意配齐安全验证的人
 
+## 邀请码与邀请链接
+
+如需使用邀请码，可填写：
+
+- `RMAQ70X`
+
+如需使用邀请链接，可通过以下地址进入：
+
+- [https://www.bybit.com/invite?ref=RMAQ70X](https://www.bybit.com/invite?ref=RMAQ70X)
+
+如当期有邀请活动或奖励，以 Bybit 实际注册页面显示为准。
+
 ## 官方来源
 
 - Bybit 注册帮助页  

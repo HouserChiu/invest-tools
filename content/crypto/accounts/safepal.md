@@ -48,6 +48,18 @@ SafePal 官方安全页直接写明：
 - 只想开一个中心化交易所账户的人
 - 不熟悉助记词备份的人
 
+## 邀请码与邀请链接
+
+如需使用邀请码，可填写：
+
+- `870587`
+
+如需使用邀请链接，可通过以下地址进入：
+
+- [https://www.safepal.com/bank/register?referral=870587](https://www.safepal.com/bank/register?referral=870587)
+
+如当期有邀请活动或奖励，以 SafePal 实际注册页面显示为准。
+
 ## 官方来源
 
 - SafePal 安全页  
