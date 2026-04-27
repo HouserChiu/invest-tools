@@ -33,10 +33,15 @@
 
 .portfolio-page .site-shell {
   width: min(1360px, calc(100% - 32px));
+  padding-top: 0;
 }
 
 .portfolio-page .doc-page {
   gap: 22px;
+}
+
+.portfolio-page .topbar {
+  top: 0;
 }
 
 .portfolio-page .breadcrumb {
@@ -432,25 +437,62 @@
 
 .portfolio-page .table-wrapper {
   position: relative;
-  overflow-x: auto;
-  overflow-y: visible;
-  -webkit-overflow-scrolling: touch;
 }
 
-.portfolio-page .table-wrapper table {
+.portfolio-page .holdings-table-wrapper {
+  overflow: visible;
+}
+
+.portfolio-page .holdings-table-wrapper table {
+  width: 100%;
+  table-layout: fixed;
   border-collapse: separate;
   border-spacing: 0;
 }
 
-.portfolio-page .table-wrapper thead th {
-  position: sticky;
-  top: 14px;
-  z-index: 12;
+.portfolio-page .holdings-table-wrapper thead th {
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(244, 247, 255, 0.98));
-  box-shadow: 0 1px 0 rgba(19, 27, 46, 0.08);
 }
 
-.portfolio-page .table-wrapper thead th::after {
+.portfolio-page.has-floating-holdings-header .holdings-table-wrapper thead {
+  visibility: hidden;
+}
+
+.portfolio-page .floating-holdings-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 60;
+  display: none;
+  pointer-events: none;
+}
+
+.portfolio-page .floating-holdings-header.is-visible {
+  display: block;
+}
+
+.portfolio-page .floating-holdings-header table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.portfolio-page .floating-holdings-header th {
+  position: relative;
+  padding: 16px 12px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 1), rgba(244, 247, 255, 1));
+  box-shadow: 0 10px 24px rgba(19, 27, 46, 0.08);
+  pointer-events: auto;
+}
+
+.portfolio-page .floating-holdings-header table {
+  border-radius: 18px;
+  overflow: hidden;
+  background: #f8faff;
+}
+
+.portfolio-page .floating-holdings-header th::after {
   content: "";
   position: absolute;
   left: 0;
@@ -622,4 +664,54 @@
 
 .portfolio-page .trade-modal-card .form-grid {
   margin-top: 8px;
+}
+
+.portfolio-page .holding-actions-card {
+  width: min(460px, 100%);
+}
+
+.portfolio-page .holding-actions-head {
+  display: grid;
+  gap: 4px;
+  margin: 12px 0 18px;
+}
+
+.portfolio-page .holding-actions-head strong {
+  font-size: 1.08rem;
+}
+
+.portfolio-page .holding-actions-list {
+  display: grid;
+  gap: 10px;
+}
+
+.portfolio-page .holding-action-option {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  padding: 14px 16px;
+  border: 1px solid rgba(19, 27, 46, 0.08);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.76);
+  text-align: left;
+  transition: transform 180ms ease, background 180ms ease, border-color 180ms ease;
+}
+
+.portfolio-page .holding-action-option:hover {
+  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.94);
+  border-color: rgba(0, 108, 73, 0.18);
+}
+
+.portfolio-page .holding-action-option strong {
+  font-size: 0.98rem;
+}
+
+.portfolio-page .holding-action-option span {
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.portfolio-page .holding-action-option.is-danger strong {
+  color: var(--red);
 }

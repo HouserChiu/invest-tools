@@ -10,9 +10,9 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Manrope:wght@500;600;700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/styles.css?v=20260427-holding-actions-menu" />
     <link rel="stylesheet" href="/portfolio-legacy.css?v=20260425-option-settlement" />
-    <link rel="stylesheet" href="/portfolio-bridge.css?v=20260427-sticky-header" />
+    <link rel="stylesheet" href="/portfolio-bridge.css?v=20260427-holding-actions-menu" />
   </head>
   <body class="portfolio-page" data-page="<%= page.pageKey %>">
     <% const isTransactionsPage = page.pageKey === "portfolio-transactions"; %>
@@ -238,8 +238,8 @@
                 <p>支持按平台统一查看股票、期权、加密货币、贵金属和外汇的状态</p>
               </div>
 
-              <div class="table-wrapper">
-                <table>
+              <div class="table-wrapper holdings-table-wrapper">
+                <table id="holdings-table">
                   <thead>
                     <tr>
                       <th>
@@ -871,9 +871,30 @@
             </form>
           </section>
         </div>
+
+        <div id="holding-actions-modal" class="trade-modal is-hidden" aria-hidden="true">
+          <div id="holding-actions-modal-backdrop" class="trade-modal-backdrop"></div>
+          <section class="trade-modal-card card holding-actions-card" role="dialog" aria-modal="true" aria-labelledby="holding-actions-modal-title">
+            <div class="card-heading">
+              <h2 id="holding-actions-modal-title">持仓操作</h2>
+              <p id="holding-actions-modal-subtitle">先选择一条动作，再继续填写或确认。</p>
+            </div>
+
+            <div class="holding-actions-head">
+              <strong id="holding-actions-symbol">-</strong>
+              <span id="holding-actions-meta" class="muted">-</span>
+            </div>
+
+            <div id="holding-actions-list" class="holding-actions-list"></div>
+
+            <div class="form-actions">
+              <button id="holding-actions-cancel-btn" type="button" class="ghost-button">取消</button>
+            </div>
+          </section>
+        </div>
       </main>
     </div>
 
-    <script src="/portfolio-app.js?v=20260427-sticky-header"></script>
+    <script src="/portfolio-app.js?v=20260427-holding-actions-menu"></script>
   </body>
 </html>

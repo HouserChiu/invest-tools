@@ -189,6 +189,8 @@ const exportBtn = document.querySelector("#export-btn");
 const exportBtnInline = document.querySelector("#export-btn-inline");
 const importFileInput = document.querySelector("#import-file");
 const importFileInputInline = document.querySelector("#import-file-inline");
+const holdingsTable = document.querySelector("#holdings-table");
+const holdingsTableWrapper = document.querySelector(".holdings-table-wrapper");
 const holdingsTableBody = document.querySelector("#holdings-table-body");
 const assetAllocation = document.querySelector("#asset-allocation");
 const platformAllocation = document.querySelector("#platform-allocation");
@@ -274,6 +276,12 @@ const optionSettlementNotes = document.querySelector("#option-settlement-notes")
 const optionSettlementFormStatus = document.querySelector("#option-settlement-form-status");
 const optionSettlementSubmitBtn = document.querySelector("#option-settlement-submit-btn");
 const optionSettlementCancelBtn = document.querySelector("#option-settlement-cancel-btn");
+const holdingActionsModal = document.querySelector("#holding-actions-modal");
+const holdingActionsModalBackdrop = document.querySelector("#holding-actions-modal-backdrop");
+const holdingActionsSymbol = document.querySelector("#holding-actions-symbol");
+const holdingActionsMeta = document.querySelector("#holding-actions-meta");
+const holdingActionsList = document.querySelector("#holding-actions-list");
+const holdingActionsCancelBtn = document.querySelector("#holding-actions-cancel-btn");
 
 const fields = {
   id: document.querySelector("#holding-id"),
@@ -326,6 +334,8 @@ let activeTradeHoldingId = null;
 let activeTradeAction = null;
 let activeOptionSettlementHoldingId = null;
 let activeHoldingMode = "create";
+let floatingHoldingsHeader = null;
+let activeHoldingActionsId = null;
 const chartPalette = ["#0fa06f", "#2f6fed", "#e5972f", "#e35d6a", "#7e57c2", "#0f766e", "#a855f7", "#ef4444"];
 const activeTransactionFilters = {
   transactionType: "",
@@ -392,6 +402,105 @@ function formatDate(value) {
 
 function getTodayInShanghai() {
   return formatShanghaiDateParts(new Date()) || new Date().toISOString().slice(0, 10);
+}
+
+function ensureFloatingHoldingsHeader() {
+  if (!document.body || !holdingsTable) return null;
+  if (!floatingHoldingsHeader) {
+    floatingHoldingsHeader = document.createElement("div");
+    floatingHoldingsHeader.className = "floating-holdings-header";
+    document.body.appendChild(floatingHoldingsHeader);
+  }
+  return floatingHoldingsHeader;
+}
+
+function syncFloatingHoldingsHeaderControls() {
+  if (!floatingHoldingsHeader || !holdingsTable) return;
+  const originalSelects = Array.from(holdingsTable.querySelectorAll("thead select"));
+  const clonedSelects = Array.from(floatingHoldingsHeader.querySelectorAll("select"));
+  clonedSelects.forEach((select, index) => {
+    const original = originalSelects[index];
+    if (!original) return;
+    select.value = original.value;
+  });
+}
+
+function bindFloatingHoldingsHeaderControls() {
+  if (!floatingHoldingsHeader || !holdingsTable) return;
+  const originalSelects = Array.from(holdingsTable.querySelectorAll("thead select"));
+  const clonedSelects = Array.from(floatingHoldingsHeader.querySelectorAll("select"));
+
+  clonedSelects.forEach((select, index) => {
+    const original = originalSelects[index];
+    if (!original) return;
+    select.addEventListener("change", () => {
+      original.value = select.value;
+      original.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+  });
+}
+
+function updateFloatingHoldingsHeaderVisibility() {
+  if (!holdingsTable || !holdingsTableWrapper) return;
+  const container = ensureFloatingHoldingsHeader();
+  if (!container) return;
+
+  const header = holdingsTable.querySelector("thead");
+  if (!header) {
+    container.classList.remove("is-visible");
+    return;
+  }
+
+  const topbar = document.querySelector(".topbar");
+  const wrapperRect = holdingsTableWrapper.getBoundingClientRect();
+  const headerRect = header.getBoundingClientRect();
+  const tableRect = holdingsTable.getBoundingClientRect();
+  const topbarBottom = topbar ? topbar.getBoundingClientRect().bottom : 0;
+  const stickyOffset = Math.max(0, topbarBottom);
+  const shouldShow = headerRect.bottom <= stickyOffset && tableRect.bottom > stickyOffset + headerRect.height + 12 && window.innerWidth > 900;
+
+  if (!shouldShow) {
+    container.classList.remove("is-visible");
+    document.body.classList.remove("has-floating-holdings-header");
+    return;
+  }
+
+  container.classList.add("is-visible");
+  document.body.classList.add("has-floating-holdings-header");
+  container.style.top = `${stickyOffset}px`;
+  container.style.left = `${wrapperRect.left}px`;
+  container.style.width = `${wrapperRect.width}px`;
+
+  const originalHeaders = Array.from(holdingsTable.querySelectorAll("thead th"));
+  const clonedHeaders = Array.from(container.querySelectorAll("th"));
+  originalHeaders.forEach((th, index) => {
+    const clone = clonedHeaders[index];
+    if (!clone) return;
+    clone.style.width = `${th.getBoundingClientRect().width}px`;
+  });
+
+  syncFloatingHoldingsHeaderControls();
+}
+
+function refreshFloatingHoldingsHeader() {
+  if (!holdingsTable) return;
+  const container = ensureFloatingHoldingsHeader();
+  if (!container) return;
+
+  const thead = holdingsTable.querySelector("thead");
+  if (!thead) {
+    container.innerHTML = "";
+    container.classList.remove("is-visible");
+    return;
+  }
+
+  const clonedTable = document.createElement("table");
+  clonedTable.setAttribute("aria-hidden", "true");
+  clonedTable.appendChild(thead.cloneNode(true));
+  container.innerHTML = "";
+  container.appendChild(clonedTable);
+  bindFloatingHoldingsHeaderControls();
+  updateFloatingHoldingsHeaderVisibility();
 }
 
 function getAssetTypeLabel(value) {
@@ -921,14 +1030,7 @@ function renderTable(summary) {
           <td>${allocation.toFixed(2)}%</td>
           <td>
             <div class="table-actions">
-              ${holding.status !== "CLOSED" && holding.assetType === "option" ? `<button class="inline-button" data-action="option-expire" data-id="${holding.id}">到期</button>` : ""}
-              ${holding.status !== "CLOSED" && holding.assetType === "option" ? `<button class="inline-button" data-action="option-settlement" data-id="${holding.id}">${holding.positionSide === "short" ? "指派" : "行权"}</button>` : ""}
-              ${holding.status !== "CLOSED" ? `<button class="inline-button" data-action="add-position" data-id="${holding.id}">加仓</button>` : ""}
-              ${holding.status !== "CLOSED" && holding.assetType !== "cash" ? `<button class="inline-button" data-action="reduce-position" data-id="${holding.id}">减仓</button>` : ""}
-              ${holding.status !== "CLOSED" ? `<button class="inline-button" data-action="close-position" data-id="${holding.id}">清仓</button>` : ""}
-              <button class="inline-button" data-action="refresh-price" data-id="${holding.id}">刷新</button>
-              <button class="inline-button" data-action="edit" data-id="${holding.id}">编辑</button>
-              <button class="inline-button delete" data-action="delete" data-id="${holding.id}">删除</button>
+              <button class="inline-button" data-action="open-actions" data-id="${holding.id}">更多</button>
             </div>
           </td>
         </tr>
@@ -1454,6 +1556,7 @@ function renderDashboard() {
   renderAssetTypePnlChart();
   renderNavSeriesChart();
   renderNavSeriesTable();
+  refreshFloatingHoldingsHeader();
 }
 
 function getCurrencyValue() {
@@ -2083,6 +2186,72 @@ function closeOptionSettlementModal() {
   optionSettlementModal?.setAttribute("aria-hidden", "true");
 }
 
+function closeHoldingActionsModal() {
+  activeHoldingActionsId = null;
+  holdingActionsModal?.classList.add("is-hidden");
+  holdingActionsModal?.setAttribute("aria-hidden", "true");
+  if (holdingActionsList) holdingActionsList.innerHTML = "";
+}
+
+function getHoldingActionOptions(holding) {
+  const options = [];
+  if (holding.status !== "CLOSED" && holding.assetType === "option") {
+    options.push({
+      action: "option-expire",
+      label: "到期作废",
+      description: "按期权到期关闭仓位，并把剩余未实现盈亏转成已实现盈亏。",
+    });
+    options.push({
+      action: "option-settlement",
+      label: holding.positionSide === "short" ? "指派结算" : "行权结算",
+      description: "把期权结算同步到股票、现金和交易流水。",
+    });
+  }
+  if (holding.status !== "CLOSED") {
+    options.push({ action: "add-position", label: "加仓", description: "补录一笔新的买入 / 增持交易。" });
+  }
+  if (holding.status !== "CLOSED" && holding.assetType !== "cash") {
+    options.push({ action: "reduce-position", label: "减仓", description: "部分减仓，并自动计算已实现盈亏。" });
+  }
+  if (holding.status !== "CLOSED") {
+    options.push({ action: "close-position", label: "清仓", description: "把当前持仓全部平掉。" });
+  }
+  options.push({ action: "refresh-price", label: "刷新", description: "单独刷新这条持仓的最新行情。" });
+  options.push({ action: "edit", label: "编辑", description: "修改这条持仓的基础信息。" });
+  options.push({ action: "delete", label: "删除", description: "彻底删除这条持仓记录。", danger: true });
+  return options;
+}
+
+function openHoldingActionsModal(holding) {
+  activeHoldingActionsId = holding.id;
+  if (holdingActionsSymbol) {
+    holdingActionsSymbol.textContent = holding.symbol || "-";
+  }
+  if (holdingActionsMeta) {
+    const parts = [holding.name, getAssetTypeLabel(holding.assetType), holding.platform].filter(Boolean);
+    holdingActionsMeta.textContent = parts.join(" · ");
+  }
+  if (holdingActionsList) {
+    holdingActionsList.innerHTML = getHoldingActionOptions(holding)
+      .map(
+        (item) => `
+          <button
+            type="button"
+            class="holding-action-option ${item.danger ? "is-danger" : ""}"
+            data-action="${item.action}"
+            data-id="${holding.id}"
+          >
+            <strong>${item.label}</strong>
+            <span>${item.description}</span>
+          </button>
+        `
+      )
+      .join("");
+  }
+  holdingActionsModal?.classList.remove("is-hidden");
+  holdingActionsModal?.setAttribute("aria-hidden", "false");
+}
+
 function openOptionSettlementModal(holding) {
   activeOptionSettlementHoldingId = holding.id;
   const isAssignment = holding.positionSide === "short";
@@ -2143,6 +2312,103 @@ function openTradeModal(holding, action) {
       tradeQuantityInput?.focus();
     }
   }, 0);
+}
+
+function handleHoldingAction(target, action) {
+  if (action === "open-actions") {
+    openHoldingActionsModal(target);
+    return;
+  }
+
+  if (action === "edit") {
+    openHoldingModal("edit", target);
+    return;
+  }
+
+  if (action === "add-position") {
+    openTradeModal(target, "add");
+    return;
+  }
+
+  if (action === "reduce-position") {
+    openTradeModal(target, "reduce");
+    return;
+  }
+
+  if (action === "close-position") {
+    openTradeModal(target, "close");
+    return;
+  }
+
+  if (action === "option-settlement") {
+    openOptionSettlementModal(target);
+    return;
+  }
+
+  if (action === "option-expire") {
+    const confirmed = window.confirm(
+      `确定把 ${target.symbol} 标记为到期作废吗？\n\n这会关闭对应期权持仓，并把剩余未实现盈亏转成已实现盈亏。不会新增一笔现金流。`
+    );
+    if (!confirmed) return;
+
+    request(`/api/holdings/${target.id}/option-expire`, {
+      method: "POST",
+      body: JSON.stringify({
+        quantity: target.quantity,
+        tradeDate: getTodayInShanghai(),
+        notes: "到期作废",
+      }),
+    })
+      .then(async (result) => {
+        if (result?.holding) {
+          const index = holdings.findIndex((item) => item.id === target.id);
+          if (index >= 0) {
+            holdings[index] = result.holding;
+          }
+        }
+        transactions = await request("/api/transactions");
+        realizedPnlEntries = await request("/api/realized-pnl");
+        reviewMetrics = await request("/api/review-metrics");
+        navSeries = await request("/api/nav-series");
+        renderDashboard();
+        setSyncStatus(`${target.symbol} 已按到期作废处理。`, "success");
+      })
+      .catch((error) => window.alert(error.message || "期权到期处理失败"));
+    return;
+  }
+
+  if (action === "delete") {
+    request(`/api/holdings/${target.id}`, { method: "DELETE" })
+      .then(async () => {
+        holdings = holdings.filter((item) => item.id !== target.id);
+        transactions = await request("/api/transactions");
+        realizedPnlEntries = await request("/api/realized-pnl");
+        reviewMetrics = await request("/api/review-metrics");
+        navSeries = await request("/api/nav-series");
+        renderDashboard();
+        if (fields.id.value === target.id) resetForm();
+      })
+      .catch((error) => window.alert(error.message || "删除失败"));
+    return;
+  }
+
+  if (action === "refresh-price") {
+    request(`/api/prices/refresh/${target.id}`, { method: "POST" })
+      .then((result) => {
+        holdings = result.holdings || holdings;
+        renderDashboard();
+        if (Array.isArray(result.warnings) && result.warnings.length) {
+          console.warn(`单条行情刷新警告(${target.symbol})：`, result.warnings);
+          setSyncStatus(`${target.symbol} 行情刷新已完成。`, "warning");
+        } else {
+          setSyncStatus(`${target.symbol} 行情刷新成功。`, "success");
+        }
+      })
+      .catch((error) => {
+        console.warn(`单条行情刷新失败(${target.symbol})：`, error.message || error);
+        setSyncStatus(`${target.symbol} 行情刷新失败。`, "warning");
+      });
+  }
 }
 
 async function continueAuth(username, password) {
@@ -2342,6 +2608,21 @@ openHoldingModalBtn?.addEventListener("click", () => {
 });
 
 holdingModalBackdrop?.addEventListener("click", closeHoldingModal);
+holdingActionsModalBackdrop?.addEventListener("click", closeHoldingActionsModal);
+holdingActionsCancelBtn?.addEventListener("click", closeHoldingActionsModal);
+
+holdingActionsList?.addEventListener("click", (event) => {
+  const button = event.target.closest("button");
+  if (!button) return;
+
+  const id = button.dataset.id || activeHoldingActionsId;
+  const action = button.dataset.action;
+  const target = holdings.find((item) => item.id === id);
+  if (!target || !action) return;
+
+  closeHoldingActionsModal();
+  handleHoldingAction(target, action);
+});
 
 holdingsTableBody.addEventListener("click", (event) => {
   const button = event.target.closest("button");
@@ -2351,89 +2632,7 @@ holdingsTableBody.addEventListener("click", (event) => {
   const action = button.dataset.action;
   const target = holdings.find((item) => item.id === id);
   if (!target) return;
-
-  if (action === "edit") {
-    openHoldingModal("edit", target);
-  }
-
-  if (action === "add-position") {
-    openTradeModal(target, "add");
-  }
-
-  if (action === "reduce-position") {
-    openTradeModal(target, "reduce");
-  }
-
-  if (action === "close-position") {
-    openTradeModal(target, "close");
-  }
-
-  if (action === "option-settlement") {
-    openOptionSettlementModal(target);
-  }
-
-  if (action === "option-expire") {
-    const confirmed = window.confirm(
-      `确定把 ${target.symbol} 标记为到期作废吗？\n\n这会关闭对应期权持仓，并把剩余未实现盈亏转成已实现盈亏。不会新增一笔现金流。`
-    );
-    if (!confirmed) return;
-
-    request(`/api/holdings/${target.id}/option-expire`, {
-      method: "POST",
-      body: JSON.stringify({
-        quantity: target.quantity,
-        tradeDate: getTodayInShanghai(),
-        notes: "到期作废",
-      }),
-    })
-      .then(async (result) => {
-        if (result?.holding) {
-          const index = holdings.findIndex((item) => item.id === target.id);
-          if (index >= 0) {
-            holdings[index] = result.holding;
-          }
-        }
-        transactions = await request("/api/transactions");
-        realizedPnlEntries = await request("/api/realized-pnl");
-        reviewMetrics = await request("/api/review-metrics");
-        navSeries = await request("/api/nav-series");
-        renderDashboard();
-        setSyncStatus(`${target.symbol} 已按到期作废处理。`, "success");
-      })
-      .catch((error) => window.alert(error.message || "期权到期处理失败"));
-  }
-
-  if (action === "delete") {
-    request(`/api/holdings/${id}`, { method: "DELETE" })
-      .then(async () => {
-        holdings = holdings.filter((item) => item.id !== id);
-        transactions = await request("/api/transactions");
-        realizedPnlEntries = await request("/api/realized-pnl");
-        reviewMetrics = await request("/api/review-metrics");
-        navSeries = await request("/api/nav-series");
-        renderDashboard();
-        if (fields.id.value === id) resetForm();
-      })
-      .catch((error) => window.alert(error.message || "删除失败"));
-  }
-
-  if (action === "refresh-price") {
-    request(`/api/prices/refresh/${id}`, { method: "POST" })
-      .then((result) => {
-        holdings = result.holdings || holdings;
-        renderDashboard();
-        if (Array.isArray(result.warnings) && result.warnings.length) {
-          console.warn(`单条行情刷新警告(${target.symbol})：`, result.warnings);
-          setSyncStatus(`${target.symbol} 行情刷新已完成。`, "warning");
-        } else {
-          setSyncStatus(`${target.symbol} 行情刷新成功。`, "success");
-        }
-      })
-      .catch((error) => {
-        console.warn(`单条行情刷新失败(${target.symbol})：`, error.message || error);
-        setSyncStatus(`${target.symbol} 行情刷新失败。`, "warning");
-      });
-  }
+  handleHoldingAction(target, action);
 });
 
 tradeForm?.addEventListener("submit", async (event) => {
@@ -2636,6 +2835,9 @@ rpSearch?.addEventListener("input", (event) => {
     renderDashboard();
   });
 });
+
+window.addEventListener("scroll", updateFloatingHoldingsHeaderVisibility, { passive: true });
+window.addEventListener("resize", updateFloatingHoldingsHeaderVisibility);
 
 resetForm();
 setAuthenticatedState(null);
