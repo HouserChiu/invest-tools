@@ -439,6 +439,11 @@
   position: relative;
 }
 
+.portfolio-page .mobile-holdings-controls,
+.portfolio-page .mobile-holdings-list {
+  display: none;
+}
+
 .portfolio-page .holdings-table-wrapper {
   overflow: visible;
 }
@@ -714,4 +719,146 @@
 
 .portfolio-page .holding-action-option.is-danger strong {
   color: var(--red);
+}
+
+@media (max-width: 720px) {
+  .portfolio-page .hero,
+  .portfolio-page .quick-actions,
+  .portfolio-page .breadcrumb,
+  .portfolio-page .portfolio-directory {
+    display: none;
+  }
+
+  .portfolio-page .portfolio-shell {
+    padding-top: 0;
+  }
+
+  .portfolio-page .portfolio-layout {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .portfolio-page .summary-grid,
+  .portfolio-page .overview-trend-grid,
+  .portfolio-page .mini-chart-grid,
+  .portfolio-page .review-analytics-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .portfolio-page .card,
+  .portfolio-page .metric-card,
+  .portfolio-page .table-card {
+    border-radius: 22px;
+  }
+
+  .portfolio-page .table-card {
+    padding: 18px 16px;
+  }
+
+  .portfolio-page .table-card .card-heading {
+    display: grid;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+
+  .portfolio-page .table-card .card-heading h2 {
+    font-size: 1.8rem;
+  }
+
+  .portfolio-page .table-card .card-heading p {
+    font-size: 0.98rem;
+    line-height: 1.6;
+  }
+
+  .portfolio-page .holdings-table-wrapper,
+  .portfolio-page .floating-holdings-header {
+    display: none !important;
+  }
+
+  .portfolio-page .mobile-holdings-controls {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+
+  .portfolio-page .mobile-holdings-controls label {
+    display: grid;
+    gap: 6px;
+    color: var(--muted);
+    font-size: 0.82rem;
+    font-weight: 700;
+  }
+
+  .portfolio-page .mobile-holdings-controls select {
+    min-width: 0;
+  }
+
+  .portfolio-page .mobile-holdings-list {
+    display: grid;
+    gap: 14px;
+  }
+
+  .portfolio-page .mobile-holding-card {
+    display: grid;
+    gap: 14px;
+    padding: 16px;
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.82);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.74);
+  }
+
+  .portfolio-page .mobile-holding-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: start;
+  }
+
+  .portfolio-page .mobile-holding-head strong {
+    font-size: 1.1rem;
+  }
+
+  .portfolio-page .mobile-holding-head .muted {
+    display: block;
+    margin-top: 4px;
+  }
+
+  .portfolio-page .mobile-holding-main {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .portfolio-page .mobile-holding-meta,
+  .portfolio-page .mobile-holding-stat {
+    display: grid;
+    gap: 4px;
+  }
+
+  .portfolio-page .mobile-holding-meta span,
+  .portfolio-page .mobile-holding-stat span {
+    color: var(--muted);
+    font-size: 0.8rem;
+  }
+
+  .portfolio-page .mobile-holding-stat strong {
+    font-size: 1rem;
+  }
+
+  .portfolio-page .mobile-holding-footer {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: center;
+  }
+
+  .portfolio-page .mobile-holding-footer .inline-button {
+    min-width: auto;
+    width: auto;
+    padding: 10px 14px;
+    border-radius: 12px;
+    background: rgba(13, 28, 50, 0.05);
+  }
 }

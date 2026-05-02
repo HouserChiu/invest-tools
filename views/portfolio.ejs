@@ -238,6 +238,40 @@
                 <p>支持按平台统一查看股票、期权、加密货币、贵金属和外汇的状态</p>
               </div>
 
+              <div class="mobile-holdings-controls">
+                <label>
+                  资产
+                  <select id="mobile-filter-asset-type">
+                    <option value="">全部</option>
+                  </select>
+                </label>
+                <label>
+                  平台
+                  <select id="mobile-filter-platform">
+                    <option value="">全部</option>
+                  </select>
+                </label>
+                <label>
+                  市场
+                  <select id="mobile-filter-market">
+                    <option value="">全部</option>
+                  </select>
+                </label>
+                <label>
+                  排序
+                  <select id="mobile-sort">
+                    <option value="marketValueDesc">市值从高到低</option>
+                    <option value="marketValueAsc">市值从低到高</option>
+                    <option value="costDesc">成本从高到低</option>
+                    <option value="costAsc">成本从低到高</option>
+                    <option value="pnlDesc">盈亏从高到低</option>
+                    <option value="pnlAsc">盈亏从低到高</option>
+                    <option value="allocationDesc">仓位从高到低</option>
+                    <option value="allocationAsc">仓位从低到高</option>
+                  </select>
+                </label>
+              </div>
+
               <div class="table-wrapper holdings-table-wrapper">
                 <table id="holdings-table">
                   <thead>
@@ -316,6 +350,8 @@
                   </tbody>
                 </table>
               </div>
+
+              <div id="mobile-holdings-list" class="mobile-holdings-list"></div>
             </section>
 
             <section class="card table-card <%= isTransactionsPage ? '' : 'is-hidden' %>">

@@ -7,7 +7,19 @@
     </span>
   </a>
 
+  <button class="topbar-toggle" type="button" aria-expanded="false" aria-controls="topnav-menu">
+    <span></span>
+    <span></span>
+    <span></span>
+  </button>
+
   <nav class="topnav">
+    <% site.nav.forEach((item) => { %>
+      <a href="<%= item.href %>" class="<%= currentPath === item.href ? 'is-current' : '' %>"><%= item.label %></a>
+    <% }) %>
+  </nav>
+
+  <nav id="topnav-menu" class="topnav-mobile" aria-label="移动导航">
     <% site.nav.forEach((item) => { %>
       <a href="<%= item.href %>" class="<%= currentPath === item.href ? 'is-current' : '' %>"><%= item.label %></a>
     <% }) %>

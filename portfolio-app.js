@@ -226,6 +226,13 @@ const sortCost = document.querySelector("#sort-cost");
 const sortMarketValue = document.querySelector("#sort-market-value");
 const sortPnl = document.querySelector("#sort-pnl");
 const sortAllocation = document.querySelector("#sort-allocation");
+const mobileFilterAssetType = document.querySelector("#mobile-filter-asset-type");
+const mobileFilterPlatform = document.querySelector("#mobile-filter-platform");
+const mobileFilterMarket = document.querySelector("#mobile-filter-market");
+const mobileSort = document.querySelector("#mobile-sort");
+const mobileHoldingsList = document.querySelector("#mobile-holdings-list");
+const topbar = document.querySelector(".topbar");
+const topbarToggle = document.querySelector(".topbar-toggle");
 const txFilterType = document.querySelector("#tx-filter-type");
 const txFilterAssetType = document.querySelector("#tx-filter-asset-type");
 const txFilterPlatform = document.querySelector("#tx-filter-platform");
@@ -863,6 +870,12 @@ function renderFilters() {
   renderFilterGroup(filterAssetType, activeHoldings.map((holding) => holding.assetType), activeFilters.assetType, getAssetTypeLabel);
   renderFilterGroup(filterPlatform, activeHoldings.map((holding) => holding.platform), activeFilters.platform);
   renderFilterGroup(filterMarket, activeHoldings.map((holding) => holding.market), activeFilters.market);
+  renderFilterGroup(mobileFilterAssetType, activeHoldings.map((holding) => holding.assetType), activeFilters.assetType, getAssetTypeLabel);
+  renderFilterGroup(mobileFilterPlatform, activeHoldings.map((holding) => holding.platform), activeFilters.platform);
+  renderFilterGroup(mobileFilterMarket, activeHoldings.map((holding) => holding.market), activeFilters.market);
+  if (mobileSort) {
+    mobileSort.value = activeSort || "marketValueDesc";
+  }
 }
 
 function getFilteredTransactions(source = transactions) {
@@ -1038,6 +1051,83 @@ function renderTable(summary) {
     });
 
   holdingsTableBody.innerHTML = rows.join("");
+}
+
+function renderMobileHoldings(summary) {
+  if (!mobileHoldingsList) return;
+  const filteredHoldings = getFilteredHoldings();
+
+  if (!filteredHoldings.length) {
+    mobileHoldingsList.innerHTML = `<article class="mobile-holding-card"><p class="empty-row">当前没有持仓，已平仓记录可以去“历史已清仓”里查看。</p></article>`;
+    return;
+  }
+
+  const rows = [...filteredHoldings]
+    .sort((a, b) => {
+      const metricsA = computeHoldingMetrics(a);
+      const metricsB = computeHoldingMetrics(b);
+      const allocationA = summary.totalMarketValue !== 0 ? (metricsA.marketValueBase / summary.totalMarketValue) * 100 : 0;
+      const allocationB = summary.totalMarketValue !== 0 ? (metricsB.marketValueBase / summary.totalMarketValue) * 100 : 0;
+
+      if (activeSort === "costDesc") return metricsB.costValueBase - metricsA.costValueBase;
+      if (activeSort === "costAsc") return metricsA.costValueBase - metricsB.costValueBase;
+      if (activeSort === "pnlDesc") return metricsB.pnlBase - metricsA.pnlBase;
+      if (activeSort === "pnlAsc") return metricsA.pnlBase - metricsB.pnlBase;
+      if (activeSort === "allocationDesc") return allocationB - allocationA;
+      if (activeSort === "allocationAsc") return allocationA - allocationB;
+      if (activeSort === "marketValueAsc") return metricsA.marketValueBase - metricsB.marketValueBase;
+      return metricsB.marketValueBase - metricsA.marketValueBase;
+    })
+    .map((holding) => {
+      const metrics = computeHoldingMetrics(holding);
+      const allocation = summary.totalMarketValue !== 0 ? (metrics.marketValueBase / summary.totalMarketValue) * 100 : 0;
+
+      return `
+        <article class="mobile-holding-card">
+          <div class="mobile-holding-head">
+            <div>
+              <strong>${holding.symbol}</strong>
+              <span class="muted">${holding.name}</span>
+              <div class="chip-row">
+                <span class="chip">${getAssetTypeLabel(holding.assetType)}</span>
+                <span class="chip">${holding.platform}</span>
+                <span class="chip">${holding.market}</span>
+                ${getSyncBadge(holding)}
+              </div>
+            </div>
+            <button class="inline-button" data-action="open-actions" data-id="${holding.id}">更多</button>
+          </div>
+          <div class="mobile-holding-main">
+            <div class="mobile-holding-meta">
+              <span>数量 / 张数</span>
+              <strong>${holding.quantity}${holding.assetType === "option" ? " 张" : holding.assetType === "cash" ? ` ${holding.currency}` : ""}</strong>
+            </div>
+            <div class="mobile-holding-meta">
+              <span>仓位</span>
+              <strong>${allocation.toFixed(2)}%</strong>
+            </div>
+            <div class="mobile-holding-stat">
+              <span>成本</span>
+              <strong>${formatMoney(metrics.costValueBase)}</strong>
+            </div>
+            <div class="mobile-holding-stat">
+              <span>市值</span>
+              <strong>${formatMoney(metrics.marketValueBase)}</strong>
+            </div>
+            <div class="mobile-holding-stat">
+              <span>盈亏</span>
+              <strong class="${metrics.pnlBase >= 0 ? "gain" : "loss"}">${formatMoney(metrics.pnlBase)}</strong>
+            </div>
+            <div class="mobile-holding-stat">
+              <span>收益率</span>
+              <strong class="${metrics.pnlBase >= 0 ? "gain" : "loss"}">${formatPercent(metrics.pnlRate)}</strong>
+            </div>
+          </div>
+        </article>
+      `;
+    });
+
+  mobileHoldingsList.innerHTML = rows.join("");
 }
 
 function renderTransactionsTable() {
@@ -1557,6 +1647,7 @@ function renderDashboard() {
   renderNavSeriesChart();
   renderNavSeriesTable();
   refreshFloatingHoldingsHeader();
+  renderMobileHoldings(summary);
 }
 
 function getCurrencyValue() {
@@ -2635,6 +2726,18 @@ holdingsTableBody.addEventListener("click", (event) => {
   handleHoldingAction(target, action);
 });
 
+mobileHoldingsList?.addEventListener("click", (event) => {
+  const button = event.target.closest("button");
+  if (!button) return;
+
+  const id = button.dataset.id;
+  const action = button.dataset.action;
+  const target = holdings.find((item) => item.id === id);
+  if (!target || !action) return;
+
+  handleHoldingAction(target, action);
+});
+
 tradeForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
 
@@ -2760,6 +2863,14 @@ optionSettlementModalBackdrop?.addEventListener("click", closeOptionSettlementMo
   });
 });
 
+[mobileFilterAssetType, mobileFilterPlatform, mobileFilterMarket].forEach((container, index) => {
+  container?.addEventListener("change", (event) => {
+    const key = index === 0 ? "assetType" : index === 1 ? "platform" : "market";
+    activeFilters[key] = event.target.value || "";
+    renderDashboard();
+  });
+});
+
 [txFilterType, txFilterAssetType, txFilterPlatform].forEach((container, index) => {
   container?.addEventListener("change", (event) => {
     const key = index === 0 ? "transactionType" : index === 1 ? "assetType" : "platform";
@@ -2834,6 +2945,24 @@ rpSearch?.addEventListener("input", (event) => {
 
     renderDashboard();
   });
+});
+
+mobileSort?.addEventListener("change", () => {
+  activeSort = mobileSort.value || "marketValueDesc";
+  [sortCost, sortMarketValue, sortPnl, sortAllocation].forEach((item) => {
+    if (!item) return;
+    item.value = item.id === "sort-market-value" && activeSort === "marketValueDesc" ? "marketValueDesc" : item.value;
+  });
+  if (sortCost && activeSort.startsWith("cost")) sortCost.value = activeSort;
+  if (sortMarketValue && activeSort.startsWith("marketValue")) sortMarketValue.value = activeSort;
+  if (sortPnl && activeSort.startsWith("pnl")) sortPnl.value = activeSort;
+  if (sortAllocation && activeSort.startsWith("allocation")) sortAllocation.value = activeSort;
+  renderDashboard();
+});
+
+topbarToggle?.addEventListener("click", () => {
+  const expanded = topbar?.classList.toggle("is-mobile-open");
+  topbarToggle.setAttribute("aria-expanded", expanded ? "true" : "false");
 });
 
 window.addEventListener("scroll", updateFloatingHoldingsHeaderVisibility, { passive: true });
