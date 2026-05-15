@@ -1,9 +1,10 @@
 const express = require("express");
 const mysql = require("mysql2/promise");
-const { marked } = require("marked");
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
+const { getPageContent } = require("./lib/site-content");
+const { PAGE_ROUTES, LEGACY_REDIRECTS } = require("./lib/site-routes");
 
 loadEnvFile(".env");
 loadEnvFile(".env.example");
@@ -18,14 +19,6 @@ const DB_NAME = process.env.DB_NAME || "investment_dashboard";
 const QUOTE_PROXY_URL = process.env.QUOTE_PROXY_URL || "http://127.0.0.1:8000";
 const SESSION_COOKIE_NAME = "investment_session";
 const SESSION_TTL_DAYS = 30;
-const CONTENT_FILES = [
-  path.join(__dirname, "data", "site.json"),
-  path.join(__dirname, "data", "home.json"),
-  path.join(__dirname, "data", "stocks.json"),
-  path.join(__dirname, "data", "crypto.json"),
-  path.join(__dirname, "data", "sim.json"),
-  path.join(__dirname, "data", "portfolio.json"),
-];
 
 const app = express();
 let databaseReady = false;
@@ -81,84 +74,8 @@ app.set("views", path.join(__dirname, "views"));
 app.set("view engine", "ejs");
 app.use(express.json());
 
-marked.setOptions({
-  gfm: true,
-  breaks: true,
-});
-
-function renderMarkdownFile(markdownPath) {
-  if (!markdownPath) return null;
-
-  const fullPath = path.join(__dirname, markdownPath);
-  if (!fs.existsSync(fullPath)) return null;
-
-  const raw = fs.readFileSync(fullPath, "utf8");
-  return marked.parse(raw);
-}
-
-function enrichMarkdownContent(value) {
-  if (Array.isArray(value)) {
-    return value.map((item) => enrichMarkdownContent(item));
-  }
-
-  if (!value || typeof value !== "object") {
-    return value;
-  }
-
-  const next = Object.fromEntries(
-    Object.entries(value).map(([key, entry]) => [key, enrichMarkdownContent(entry)])
-  );
-
-  if (next.markdownPath) {
-    next.markdownHtml = renderMarkdownFile(next.markdownPath);
-  }
-
-  return next;
-}
-
-function loadSiteContent() {
-  return CONTENT_FILES.reduce(
-    (accumulator, filePath) => {
-      const content = JSON.parse(fs.readFileSync(filePath, "utf8"));
-
-      if (content.site) {
-        accumulator.site = { ...accumulator.site, ...content.site };
-      }
-
-      if (content.sidebars) {
-        accumulator.sidebars = { ...accumulator.sidebars, ...content.sidebars };
-      }
-
-      if (content.pages) {
-        accumulator.pages = {
-          ...accumulator.pages,
-          ...Object.fromEntries(Object.entries(content.pages).map(([key, page]) => [key, enrichMarkdownContent(page)])),
-        };
-      }
-
-      return accumulator;
-    },
-    { site: {}, sidebars: {}, pages: {} }
-  );
-}
-
-function getPageContent(key) {
-  const siteContent = loadSiteContent();
-  const page = siteContent.pages[key];
-
-  if (!page) {
-    return null;
-  }
-
-  return {
-    site: siteContent.site,
-    sidebars: siteContent.sidebars,
-    page,
-  };
-}
-
 function renderPage(res, key, currentPath) {
-  const content = getPageContent(key);
+  const content = getPageContent(__dirname, key);
 
   if (!content) {
     res.status(404).send("Page not found");
@@ -3707,128 +3624,15 @@ async function ensureSchema() {
   await pool.query("DELETE FROM sessions WHERE expires_at <= NOW()");
 }
 
-app.get("/", (_req, res) => {
-  renderPage(res, "home", "/");
-});
+for (const route of PAGE_ROUTES) {
+  app.get(route.path, (_req, res) => {
+    renderPage(res, route.key, route.path);
+  });
+}
 
-app.get("/stocks", (_req, res) => {
-  renderPage(res, "stocks", "/stocks");
-});
-
-app.get("/stocks/bank-cards", (_req, res) => {
-  renderPage(res, "stocks-bank-cards", "/stocks/bank-cards");
-});
-
-app.get("/stocks/brokers", (_req, res) => {
-  renderPage(res, "stocks-brokers", "/stocks/brokers");
-});
-
-app.get("/stocks/bank-funding", (_req, res) => {
-  renderPage(res, "stocks-bank-funding", "/stocks/bank-funding");
-});
-
-app.get("/stocks/broker-funding", (_req, res) => {
-  renderPage(res, "stocks-broker-funding", "/stocks/broker-funding");
-});
-
-app.get("/stocks/withdrawal", (_req, res) => {
-  renderPage(res, "stocks-withdrawal", "/stocks/withdrawal");
-});
-
-app.get("/stocks/spending", (_req, res) => {
-  renderPage(res, "stocks-spending", "/stocks/spending");
-});
-
-app.get("/crypto", (_req, res) => {
-  renderPage(res, "crypto", "/crypto");
-});
-
-app.get("/crypto/accounts", (_req, res) => {
-  renderPage(res, "crypto-accounts", "/crypto/accounts");
-});
-
-app.get("/crypto/funding", (_req, res) => {
-  renderPage(res, "crypto-funding", "/crypto/funding");
-});
-
-app.get("/crypto/withdrawal", (_req, res) => {
-  renderPage(res, "crypto-withdrawal", "/crypto/withdrawal");
-});
-
-app.get("/crypto/spending", (_req, res) => {
-  renderPage(res, "crypto-spending", "/crypto/spending");
-});
-
-app.get("/crypto/onchain", (_req, res) => {
-  renderPage(res, "crypto-onchain", "/crypto/onchain");
-});
-
-app.get("/crypto/onchain-us-stocks", (_req, res) => {
-  renderPage(res, "crypto-onchain-us-stocks", "/crypto/onchain-us-stocks");
-});
-
-app.get("/sim", (_req, res) => {
-  renderPage(res, "sim", "/sim");
-});
-
-app.get("/sim/hk", (_req, res) => {
-  renderPage(res, "sim-hk", "/sim/hk");
-});
-
-app.get("/sim/us", (_req, res) => {
-  renderPage(res, "sim-us", "/sim/us");
-});
-
-app.get("/portfolio", (_req, res) => {
-  renderPage(res, "portfolio", "/portfolio");
-});
-
-app.get("/portfolio/transactions", (_req, res) => {
-  renderPage(res, "portfolio-transactions", "/portfolio/transactions");
-});
-
-app.get("/portfolio/history", (_req, res) => {
-  renderPage(res, "portfolio-history", "/portfolio/history");
-});
-
-app.get("/portfolio/realized-pnl", (_req, res) => {
-  renderPage(res, "portfolio-realized-pnl", "/portfolio/realized-pnl");
-});
-
-app.get("/portfolio/review", (_req, res) => {
-  renderPage(res, "portfolio-review", "/portfolio/review");
-});
-
-app.get("/index.html", (_req, res) => res.redirect(302, "/"));
-app.get("/offshore", (_req, res) => res.redirect(302, "/"));
-app.get("/offshore/stocks", (_req, res) => res.redirect(302, "/stocks"));
-app.get("/offshore/stocks/bank-cards", (_req, res) => res.redirect(302, "/stocks/bank-cards"));
-app.get("/offshore/stocks/brokers", (_req, res) => res.redirect(302, "/stocks/brokers"));
-app.get("/offshore/stocks/bank-funding", (_req, res) => res.redirect(302, "/stocks/bank-funding"));
-app.get("/offshore/stocks/broker-funding", (_req, res) => res.redirect(302, "/stocks/broker-funding"));
-app.get("/offshore/stocks/withdrawal", (_req, res) => res.redirect(302, "/stocks/withdrawal"));
-app.get("/offshore/stocks/spending", (_req, res) => res.redirect(302, "/stocks/spending"));
-app.get("/offshore/crypto", (_req, res) => res.redirect(302, "/crypto"));
-app.get("/offshore/crypto/accounts", (_req, res) => res.redirect(302, "/crypto/accounts"));
-app.get("/offshore/crypto/funding", (_req, res) => res.redirect(302, "/crypto/funding"));
-app.get("/offshore/crypto/withdrawal", (_req, res) => res.redirect(302, "/crypto/withdrawal"));
-app.get("/offshore/crypto/spending", (_req, res) => res.redirect(302, "/crypto/spending"));
-app.get("/offshore/crypto/onchain", (_req, res) => res.redirect(302, "/crypto/onchain"));
-app.get("/offshore/crypto/onchain-us-stocks", (_req, res) => res.redirect(302, "/crypto/onchain-us-stocks"));
-app.get("/stocks/accounts", (_req, res) => res.redirect(302, "/stocks/bank-cards"));
-app.get("/stocks/allocation", (_req, res) => res.redirect(302, "/stocks/brokers"));
-app.get("/stocks/monitoring", (_req, res) => res.redirect(302, "/stocks/broker-funding"));
-app.get("/crypto/fiat", (_req, res) => res.redirect(302, "/crypto/funding"));
-app.get("/crypto/wallets", (_req, res) => res.redirect(302, "/crypto/accounts"));
-app.get("/stocks.html", (_req, res) => res.redirect(302, "/stocks"));
-app.get("/stocks-accounts.html", (_req, res) => res.redirect(302, "/stocks/bank-cards"));
-app.get("/stocks-allocation.html", (_req, res) => res.redirect(302, "/stocks/brokers"));
-app.get("/stocks-monitoring.html", (_req, res) => res.redirect(302, "/stocks/broker-funding"));
-app.get("/crypto.html", (_req, res) => res.redirect(302, "/crypto"));
-app.get("/crypto-fiat.html", (_req, res) => res.redirect(302, "/crypto/funding"));
-app.get("/crypto-wallets.html", (_req, res) => res.redirect(302, "/crypto/accounts"));
-app.get("/crypto-onchain.html", (_req, res) => res.redirect(302, "/crypto/onchain"));
-app.get("/portfolio.html", (_req, res) => res.redirect(302, "/portfolio"));
+for (const [legacyPath, targetPath] of Object.entries(LEGACY_REDIRECTS)) {
+  app.get(legacyPath, (_req, res) => res.redirect(302, targetPath));
+}
 
 app.use(express.static(path.join(__dirname), { index: false, redirect: false }));
 

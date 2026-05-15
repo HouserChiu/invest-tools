@@ -180,6 +180,8 @@
                 </div>
                 <div class="action-row">
                   <button id="open-holding-modal-btn" type="button" class="primary-button">新增持仓</button>
+                  <button id="open-transfer-modal-btn" type="button" class="ghost-button">账户转账</button>
+                  <button id="open-fx-modal-btn" type="button" class="ghost-button">换汇</button>
                   <button id="refresh-prices-btn-inline" type="button" class="ghost-button">刷新行情</button>
                 </div>
               </div>
@@ -842,6 +844,99 @@
           </section>
         </div>
 
+        <div id="cash-flow-modal" class="trade-modal is-hidden" aria-hidden="true">
+          <div id="cash-flow-modal-backdrop" class="trade-modal-backdrop"></div>
+          <section class="trade-modal-card card" role="dialog" aria-modal="true" aria-labelledby="cash-flow-modal-title">
+            <div class="card-heading">
+              <h2 id="cash-flow-modal-title">现金动作</h2>
+              <p id="cash-flow-modal-subtitle">处理账户间转账和同平台换汇</p>
+            </div>
+
+            <form id="cash-flow-form" class="holding-form" novalidate>
+              <div class="form-grid">
+                <label>
+                  动作类型
+                  <input id="cash-flow-action-label" type="text" readonly />
+                </label>
+
+                <label id="cash-flow-platform-field">
+                  平台
+                  <select id="cash-flow-platform"></select>
+                </label>
+
+                <label id="cash-flow-source-platform-field">
+                  转出平台
+                  <select id="cash-flow-source-platform"></select>
+                </label>
+
+                <label id="cash-flow-target-platform-field">
+                  转入平台
+                  <select id="cash-flow-target-platform"></select>
+                </label>
+
+                <label>
+                  换出 / 转出币种
+                  <select id="cash-flow-source-currency">
+                    <option value="USD">USD</option>
+                    <option value="HKD">HKD</option>
+                    <option value="KRW">KRW</option>
+                    <option value="USDT">USDT</option>
+                    <option value="USDC">USDC</option>
+                  </select>
+                </label>
+
+                <label id="cash-flow-target-currency-field">
+                  换入币种
+                  <select id="cash-flow-target-currency">
+                    <option value="USD">USD</option>
+                    <option value="HKD">HKD</option>
+                    <option value="KRW">KRW</option>
+                    <option value="USDT">USDT</option>
+                    <option value="USDC">USDC</option>
+                  </select>
+                </label>
+
+                <label>
+                  换出 / 转出金额
+                  <input id="cash-flow-source-amount" type="number" min="0" step="any" placeholder="请输入金额" required />
+                </label>
+
+                <label id="cash-flow-target-amount-field">
+                  换入金额
+                  <input id="cash-flow-target-amount" type="number" min="0" step="any" placeholder="请输入换入金额" />
+                </label>
+
+                <label id="cash-flow-fx-rate-field">
+                  兑美元汇率
+                  <input id="cash-flow-fx-rate" type="number" min="0" step="any" placeholder="同币种转账可选" />
+                </label>
+
+                <label id="cash-flow-target-fx-rate-field">
+                  换入币种兑美元汇率
+                  <input id="cash-flow-target-fx-rate" type="number" min="0" step="any" placeholder="如 USD 填 1" />
+                </label>
+
+                <label>
+                  交易日期
+                  <input id="cash-flow-date" type="date" required />
+                </label>
+
+                <label>
+                  备注
+                  <input id="cash-flow-notes" type="text" placeholder="可选" />
+                </label>
+              </div>
+
+              <p id="cash-flow-form-status" class="sync-status">提交后会同步更新相关平台下的现金持仓和交易流水。</p>
+
+              <div class="form-actions">
+                <button id="cash-flow-submit-btn" type="submit" class="primary-button">确认提交</button>
+                <button id="cash-flow-cancel-btn" type="button" class="ghost-button">取消</button>
+              </div>
+            </form>
+          </section>
+        </div>
+
         <div id="option-settlement-modal" class="trade-modal is-hidden" aria-hidden="true">
           <div id="option-settlement-modal-backdrop" class="trade-modal-backdrop"></div>
           <section class="trade-modal-card card" role="dialog" aria-modal="true" aria-labelledby="option-settlement-modal-title">
@@ -931,6 +1026,6 @@
       </main>
     </div>
 
-    <script src="/portfolio-app.js?v=20260427-holding-actions-menu"></script>
+    <script src="/portfolio-app.js?v=20260511-krw-fx-fix"></script>
   </body>
 </html>

@@ -1,0 +1,33 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "global-wealth-routes",
+  "main": "src/worker.mjs",
+  "compatibility_date": "2026-05-02",
+  "compatibility_flags": ["nodejs_compat"],
+  "routes": [
+    {
+      "pattern": "aitrd.xyz/*",
+      "zone_name": "aitrd.xyz"
+    },
+    {
+      "pattern": "www.aitrd.xyz/*",
+      "zone_name": "aitrd.xyz"
+    }
+  ],
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "global-wealth-routes",
+      "database_id": "c12b9fd7-657b-4ef4-98f0-46b561d6672b"
+    }
+  ],
+  "vars": {
+    "LEGACY_API_ORIGIN": "",
+    "PUBLIC_HOST": "",
+    "PUBLIC_PORT": "0"
+  }
+}

@@ -1,10 +1,15 @@
 {
   "name": "05_investment_website",
-  "version": "0.3.0",
+  "version": "0.5.0",
   "description": "",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
+    "build:static": "node scripts/build-static-site.mjs",
+    "d1:seed:build": "node scripts/export-d1-seed.mjs",
+    "d1:seed:local": "npm run d1:seed:build && npx wrangler d1 execute global-wealth-routes --local --file=cloudflare/d1/schema.sql && npx wrangler d1 execute global-wealth-routes --local --file=cloudflare/d1/seed.sql",
+    "cf:dev": "npm run build:static && npx wrangler dev",
+    "cf:deploy": "npm run build:static && npx wrangler deploy",
     "test": "echo \"No tests configured\""
   },
   "keywords": [],
@@ -16,5 +21,8 @@
     "express": "^5.2.1",
     "marked": "^18.0.0",
     "mysql2": "^3.20.0"
+  },
+  "devDependencies": {
+    "wrangler": "^4.87.0"
   }
 }

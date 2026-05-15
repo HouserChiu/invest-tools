@@ -233,6 +233,7 @@ const mobileSort = document.querySelector("#mobile-sort");
 const mobileHoldingsList = document.querySelector("#mobile-holdings-list");
 const topbar = document.querySelector(".topbar");
 const topbarToggle = document.querySelector(".topbar-toggle");
+const AUTH_SUCCESS_STORAGE_KEY = "portfolio_auth_success_notice";
 const txFilterType = document.querySelector("#tx-filter-type");
 const txFilterAssetType = document.querySelector("#tx-filter-asset-type");
 const txFilterPlatform = document.querySelector("#tx-filter-platform");
@@ -246,6 +247,8 @@ const rpSearch = document.querySelector("#rp-search");
 const authUsername = document.querySelector("#auth-username");
 const authPassword = document.querySelector("#auth-password");
 const openHoldingModalBtn = document.querySelector("#open-holding-modal-btn");
+const openTransferModalBtn = document.querySelector("#open-transfer-modal-btn");
+const openFxModalBtn = document.querySelector("#open-fx-modal-btn");
 const holdingModal = document.querySelector("#holding-modal");
 const holdingModalBackdrop = document.querySelector("#holding-modal-backdrop");
 const holdingModalTitle = document.querySelector("#holding-modal-title");
@@ -268,6 +271,31 @@ const tradeNotesInput = document.querySelector("#trade-notes");
 const tradeFormStatus = document.querySelector("#trade-form-status");
 const tradeSubmitBtn = document.querySelector("#trade-submit-btn");
 const tradeCancelBtn = document.querySelector("#trade-cancel-btn");
+const cashFlowModal = document.querySelector("#cash-flow-modal");
+const cashFlowModalBackdrop = document.querySelector("#cash-flow-modal-backdrop");
+const cashFlowForm = document.querySelector("#cash-flow-form");
+const cashFlowActionLabel = document.querySelector("#cash-flow-action-label");
+const cashFlowPlatformField = document.querySelector("#cash-flow-platform-field");
+const cashFlowPlatform = document.querySelector("#cash-flow-platform");
+const cashFlowSourcePlatformField = document.querySelector("#cash-flow-source-platform-field");
+const cashFlowSourcePlatform = document.querySelector("#cash-flow-source-platform");
+const cashFlowTargetPlatformField = document.querySelector("#cash-flow-target-platform-field");
+const cashFlowTargetPlatform = document.querySelector("#cash-flow-target-platform");
+const cashFlowSourceCurrency = document.querySelector("#cash-flow-source-currency");
+const cashFlowTargetCurrencyField = document.querySelector("#cash-flow-target-currency-field");
+const cashFlowTargetCurrency = document.querySelector("#cash-flow-target-currency");
+const cashFlowSourceAmount = document.querySelector("#cash-flow-source-amount");
+const cashFlowTargetAmountField = document.querySelector("#cash-flow-target-amount-field");
+const cashFlowTargetAmount = document.querySelector("#cash-flow-target-amount");
+const cashFlowFxRateField = document.querySelector("#cash-flow-fx-rate-field");
+const cashFlowFxRate = document.querySelector("#cash-flow-fx-rate");
+const cashFlowTargetFxRateField = document.querySelector("#cash-flow-target-fx-rate-field");
+const cashFlowTargetFxRate = document.querySelector("#cash-flow-target-fx-rate");
+const cashFlowDate = document.querySelector("#cash-flow-date");
+const cashFlowNotes = document.querySelector("#cash-flow-notes");
+const cashFlowFormStatus = document.querySelector("#cash-flow-form-status");
+const cashFlowSubmitBtn = document.querySelector("#cash-flow-submit-btn");
+const cashFlowCancelBtn = document.querySelector("#cash-flow-cancel-btn");
 const optionSettlementModal = document.querySelector("#option-settlement-modal");
 const optionSettlementModalBackdrop = document.querySelector("#option-settlement-modal-backdrop");
 const optionSettlementForm = document.querySelector("#option-settlement-form");
@@ -339,6 +367,7 @@ let priceLookupTimer = null;
 let priceLookupRequestId = 0;
 let activeTradeHoldingId = null;
 let activeTradeAction = null;
+let activeCashFlowMode = null;
 let activeOptionSettlementHoldingId = null;
 let activeHoldingMode = "create";
 let floatingHoldingsHeader = null;
@@ -377,6 +406,15 @@ function formatMoney(value) {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(value || 0);
+}
+
+function formatUnitPrice(value) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return "-";
+  return new Intl.NumberFormat("en-US", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 3,
+  }).format(parsed);
 }
 
 function formatPercent(value) {
@@ -856,13 +894,21 @@ function getTransactionTypeLabel(value) {
                   ? "到期作废"
                 : value === "OPTION_STOCK_IN"
                   ? "交割入股"
-                  : value === "OPTION_STOCK_OUT"
-                    ? "交割卖股"
-            : value === "CASH_INFLOW"
-              ? "现金流入"
-              : value === "CASH_OUTFLOW"
-                ? "现金流出"
-                : value;
+                : value === "OPTION_STOCK_OUT"
+                  ? "交割卖股"
+                  : value === "CASH_INFLOW"
+                    ? "现金流入"
+                    : value === "CASH_OUTFLOW"
+                      ? "现金流出"
+                      : value === "TRANSFER_OUT"
+                        ? "转出"
+                        : value === "TRANSFER_IN"
+                          ? "转入"
+                          : value === "FX_EXCHANGE_OUT"
+                            ? "换出"
+                            : value === "FX_EXCHANGE_IN"
+                              ? "换入"
+                              : value;
 }
 
 function renderFilters() {
@@ -992,6 +1038,7 @@ function renderTable(summary) {
               <span class="muted">${holding.name}</span>
               <div class="chip-row">
                 <span class="chip">${getAssetTypeLabel(holding.assetType)}</span>
+                ${holding.assetType === "cash" && Number(holding.quantity || 0) < 0 ? `<span class="chip chip-sync-warning">负现金</span>` : ""}
                 ${holding.assetType === "option" ? `<span class="chip">${holding.positionSide === "short" ? "卖方" : "买方"}</span>` : ""}
                 ${holding.assetType === "option" ? `<span class="chip">${(holding.optionType || "call").toUpperCase()} ${holding.strikePrice || "-"}</span>` : ""}
                 ${holding.assetType === "option" && holding.expiryDate ? `<span class="chip">${holding.expiryDate}</span>` : ""}
@@ -1015,7 +1062,7 @@ function renderTable(summary) {
                       ? "收取权利金"
                       : "建仓价格"
                 }
-                ${holding.assetType === "cash" ? "" : `${holding.costPrice} ${holding.currency}`}
+                ${holding.assetType === "cash" ? "" : `${formatUnitPrice(holding.costPrice)} ${holding.currency}`}
               </span>
             </div>
           </td>
@@ -1030,7 +1077,7 @@ function renderTable(summary) {
                       ? "当前回补负债"
                       : "当前价格"
                 }
-                ${holding.assetType === "cash" ? "" : `${holding.currentPrice} ${holding.currency}`}
+                ${holding.assetType === "cash" ? "" : `${formatUnitPrice(holding.currentPrice)} ${holding.currency}`}
               </span>
             </div>
           </td>
@@ -1090,6 +1137,7 @@ function renderMobileHoldings(summary) {
               <span class="muted">${holding.name}</span>
               <div class="chip-row">
                 <span class="chip">${getAssetTypeLabel(holding.assetType)}</span>
+                ${holding.assetType === "cash" && Number(holding.quantity || 0) < 0 ? `<span class="chip chip-sync-warning">负现金</span>` : ""}
                 <span class="chip">${holding.platform}</span>
                 <span class="chip">${holding.market}</span>
                 ${getSyncBadge(holding)}
@@ -1209,7 +1257,7 @@ function renderClosedHoldingsTable() {
         </td>
         <td>${holding.platform}</td>
         <td>${holding.notes ? escapeHtml(holding.notes) : "-"}</td>
-        <td>${holding.currentPrice ? `${holding.currentPrice} ${holding.currency}` : "-"}</td>
+        <td>${holding.currentPrice ? `${formatUnitPrice(holding.currentPrice)} ${holding.currency}` : "-"}</td>
         <td class="${holding.realizedPnlTotal >= 0 ? "gain" : "loss"}">${formatMoney(holding.realizedPnlTotal || 0)}</td>
         <td>${holding.notes || "-"}</td>
       </tr>
@@ -1684,6 +1732,22 @@ function updateCurrencyField() {
   }
 }
 
+function shouldAutoSuggestFxRate(currency, currentFxRate) {
+  const normalized = String(currency || "").trim().toUpperCase();
+  if (!normalized || ["USD", "USDT", "USDC"].includes(normalized)) return false;
+  return !(Number(currentFxRate) > 0) || Number(currentFxRate) === 1;
+}
+
+function syncHoldingFxRateField({ force = false } = {}) {
+  const currency = getCurrencyValue();
+  const currentFxRate = toNumber(fields.fxRate.value);
+  if (!force && !shouldAutoSuggestFxRate(currency, currentFxRate)) return;
+  const suggested = suggestFxRateForCurrency(currency);
+  if (suggested) {
+    fields.fxRate.value = suggested;
+  }
+}
+
 function escapeHtml(value) {
   return String(value || "")
     .replaceAll("&", "&amp;")
@@ -1702,6 +1766,7 @@ function resetForm() {
   fields.contractMultiplier.value = "100";
   fields.fxRate.value = "1";
   setCurrencyValue("USD");
+  syncHoldingFxRateField({ force: true });
   updateFormForAssetType();
   setPriceLookupStatus("填好代码、市场和币种后，系统会先查数据库缓存，未命中时再请求 Yahoo Finance 代理服务，包括 XAUUSD / XAGUSD 这类贵金属映射。");
 }
@@ -1799,6 +1864,8 @@ function updateFormForAssetType() {
       fxRateLabel.textContent = "兑美元汇率";
     }
   }
+
+  syncHoldingFxRateField();
 }
 
 function populateForm(holding) {
@@ -1821,6 +1888,7 @@ function populateForm(holding) {
   fields.strikePrice.value = holding.strikePrice || "";
   fields.expiryDate.value = holding.expiryDate || "";
   fields.contractMultiplier.value = holding.contractMultiplier || 100;
+  syncHoldingFxRateField({ force: Number(holding.fxRate || 0) === 1 });
   updateFormForAssetType();
   setPriceLookupStatus("已载入这条持仓，修改代码或关键字段后可重新获取 T-1 价格。");
 }
@@ -1858,6 +1926,25 @@ function setAuthStatus(message, tone = "") {
   authStatus.className = `sync-status ${tone}`.trim();
 }
 
+function consumePendingAuthNotice() {
+  try {
+    const message = sessionStorage.getItem(AUTH_SUCCESS_STORAGE_KEY);
+    if (!message) return null;
+    sessionStorage.removeItem(AUTH_SUCCESS_STORAGE_KEY);
+    return message;
+  } catch {
+    return null;
+  }
+}
+
+function storePendingAuthNotice(message) {
+  try {
+    sessionStorage.setItem(AUTH_SUCCESS_STORAGE_KEY, message);
+  } catch {
+    // Ignore storage failures and continue without persisted message.
+  }
+}
+
 function setAuthenticatedState(user) {
   currentUser = user;
   const authenticated = Boolean(user);
@@ -1868,7 +1955,7 @@ function setAuthenticatedState(user) {
 
   if (authenticated) {
     userBadge.textContent = `当前用户：${user.username}`;
-    setAuthStatus("登录成功，你现在看到的只会是自己的持仓数据。", "success");
+    setAuthStatus(consumePendingAuthNotice() || "登录成功，你现在看到的只会是自己的持仓数据。", "success");
     dashboard.scrollIntoView({ behavior: "smooth", block: "start" });
   } else {
     userBadge.textContent = "请先登录后查看个人投资总览";
@@ -1930,6 +2017,12 @@ function setTradeStatus(message, tone = "") {
 }
 
 function buildHoldingDraft() {
+  const currency = getCurrencyValue();
+  const rawFxRate = toNumber(fields.fxRate.value);
+  const resolvedFxRate = shouldAutoSuggestFxRate(currency, rawFxRate)
+    ? toNumber(suggestFxRateForCurrency(currency)) || rawFxRate || 1
+    : rawFxRate || 1;
+
   return {
     id: fields.id.value || generateUuid(),
     assetType: fields.assetType.value,
@@ -1938,11 +2031,11 @@ function buildHoldingDraft() {
     market: fields.market.value,
     symbol: fields.symbol.value.trim().toUpperCase(),
     name: fields.name.value.trim() || fields.symbol.value.trim().toUpperCase(),
-    currency: getCurrencyValue(),
+    currency,
     quantity: toNumber(fields.quantity.value),
     costPrice: fields.assetType.value === "cash" ? 1 : toNumber(fields.costPrice.value),
     currentPrice: fields.assetType.value === "cash" ? 1 : toNumber(fields.currentPrice.value),
-    fxRate: toNumber(fields.fxRate.value) || 1,
+    fxRate: resolvedFxRate,
     targetAllocation: toNumber(fields.targetAllocation.value),
     notes: fields.notes.value.trim(),
     underlying: fields.assetType.value === "option" ? fields.underlying.value.trim().toUpperCase() : "",
@@ -1973,6 +2066,9 @@ function canLookupPrice(holding) {
 function applyLookupSnapshot(snapshot) {
   if (snapshot?.currentPrice != null && fields.assetType.value !== "cash") {
     fields.currentPrice.value = formatInputNumber(snapshot.currentPrice);
+  }
+  if (snapshot?.fxRateToUsd != null && shouldAutoSuggestFxRate(getCurrencyValue(), fields.fxRate.value)) {
+    fields.fxRate.value = formatInputNumber(snapshot.fxRateToUsd);
   }
 }
 
@@ -2047,7 +2143,9 @@ async function refreshLatestPrices() {
 
   try {
     const result = await request("/api/prices/refresh", { method: "POST" });
-    holdings = result.holdings || [];
+    holdings = Array.isArray(result.holdings)
+      ? result.holdings
+      : await request("/api/holdings");
     transactions = await request("/api/transactions");
     realizedPnlEntries = await request("/api/realized-pnl");
     reviewMetrics = await request("/api/review-metrics");
@@ -2093,11 +2191,24 @@ async function saveHolding() {
   const method = existingIndex >= 0 ? "PUT" : "POST";
   const url = existingIndex >= 0 ? `/api/holdings/${holding.id}` : "/api/holdings";
   const saved = await request(url, { method, body: JSON.stringify(holding) });
+  const savedHolding = saved?.holding || saved;
+
+  if (Array.isArray(saved?.relatedHoldings)) {
+    saved.relatedHoldings.forEach((relatedHolding) => {
+      if (!relatedHolding?.id) return;
+      const relatedIndex = holdings.findIndex((item) => item.id === relatedHolding.id);
+      if (relatedIndex >= 0) {
+        holdings[relatedIndex] = relatedHolding;
+      } else {
+        holdings.unshift(relatedHolding);
+      }
+    });
+  }
 
   if (existingIndex >= 0) {
-    holdings[existingIndex] = saved;
+    holdings[existingIndex] = savedHolding;
   } else {
-    holdings.unshift(saved);
+    holdings.unshift(savedHolding);
   }
 
   transactions = await request("/api/transactions");
@@ -2256,12 +2367,79 @@ async function revertHoldingTransaction(transaction) {
   return result;
 }
 
+async function submitCashTransfer(payload) {
+  const result = await request("/api/cash/transfer", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+
+  if (Array.isArray(result?.relatedHoldings)) {
+    result.relatedHoldings.forEach((relatedHolding) => {
+      if (!relatedHolding?.id) return;
+      const relatedIndex = holdings.findIndex((item) => item.id === relatedHolding.id);
+      if (relatedIndex >= 0) {
+        holdings[relatedIndex] = relatedHolding;
+      } else {
+        holdings.unshift(relatedHolding);
+      }
+    });
+  }
+
+  transactions = await request("/api/transactions");
+  realizedPnlEntries = await request("/api/realized-pnl");
+  reviewMetrics = await request("/api/review-metrics");
+  navSeries = await request("/api/nav-series");
+  renderDashboard();
+
+  return result;
+}
+
+async function submitFxExchange(payload) {
+  const result = await request("/api/fx/exchange", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+
+  if (Array.isArray(result?.relatedHoldings)) {
+    result.relatedHoldings.forEach((relatedHolding) => {
+      if (!relatedHolding?.id) return;
+      const relatedIndex = holdings.findIndex((item) => item.id === relatedHolding.id);
+      if (relatedIndex >= 0) {
+        holdings[relatedIndex] = relatedHolding;
+      } else {
+        holdings.unshift(relatedHolding);
+      }
+    });
+  }
+
+  transactions = await request("/api/transactions");
+  realizedPnlEntries = await request("/api/realized-pnl");
+  reviewMetrics = await request("/api/review-metrics");
+  navSeries = await request("/api/nav-series");
+  renderDashboard();
+
+  return result;
+}
+
 function closeTradeModal() {
   activeTradeHoldingId = null;
   activeTradeAction = null;
   tradeForm?.reset();
   tradeModal?.classList.add("is-hidden");
   tradeModal?.setAttribute("aria-hidden", "true");
+}
+
+function setCashFlowStatus(message, tone = "") {
+  if (!cashFlowFormStatus) return;
+  cashFlowFormStatus.textContent = message;
+  cashFlowFormStatus.className = `sync-status ${tone}`.trim();
+}
+
+function closeCashFlowModal() {
+  activeCashFlowMode = null;
+  cashFlowForm?.reset();
+  cashFlowModal?.classList.add("is-hidden");
+  cashFlowModal?.setAttribute("aria-hidden", "true");
 }
 
 function setOptionSettlementStatus(message, tone = "") {
@@ -2367,6 +2545,96 @@ function openOptionSettlementModal(holding) {
   optionSettlementModal.classList.remove("is-hidden");
   optionSettlementModal.setAttribute("aria-hidden", "false");
   window.setTimeout(() => optionSettlementQuantityInput?.focus(), 0);
+}
+
+function getPlatformOptions() {
+  const values = Array.from(new Set(holdings.map((holding) => holding.platform).filter(Boolean)));
+  const defaults = ["IBKR", "Futu", "Longbridge", "Tiger", "Phillip", "OKX", "Zhuorui"];
+  defaults.forEach((item) => {
+    if (!values.includes(item)) values.push(item);
+  });
+  return values;
+}
+
+function populateSelectOptions(select, values, currentValue = "") {
+  if (!select) return;
+  select.innerHTML = values
+    .map((value) => `<option value="${value}" ${value === currentValue ? "selected" : ""}>${value}</option>`)
+    .join("");
+}
+
+function suggestFxRateForCurrency(currency) {
+  const matched = holdings.find((holding) => holding.currency === currency && Number(holding.fxRate || 0) > 0);
+  if (matched) return String(matched.fxRate);
+  if (currency === "USD" || currency === "USDT" || currency === "USDC") return "1";
+  if (currency === "HKD") return "0.128";
+  if (currency === "KRW") return "0.0007";
+  return "";
+}
+
+function syncCashFlowDerivedFields() {
+  if (!cashFlowSourceCurrency || !cashFlowTargetCurrency || !cashFlowTargetAmount) return;
+
+  if (activeCashFlowMode === "transfer") {
+    cashFlowTargetCurrency.value = cashFlowSourceCurrency.value;
+    cashFlowTargetAmount.value = cashFlowSourceAmount.value;
+    if (!cashFlowFxRate.value) {
+      cashFlowFxRate.value = suggestFxRateForCurrency(cashFlowSourceCurrency.value);
+    }
+    if (!cashFlowTargetFxRate.value) {
+      cashFlowTargetFxRate.value = cashFlowFxRate.value || suggestFxRateForCurrency(cashFlowTargetCurrency.value);
+    }
+    return;
+  }
+
+  if (activeCashFlowMode === "fx") {
+    if (!cashFlowFxRate.value) {
+      cashFlowFxRate.value = suggestFxRateForCurrency(cashFlowSourceCurrency.value);
+    }
+    if (!cashFlowTargetFxRate.value) {
+      cashFlowTargetFxRate.value = suggestFxRateForCurrency(cashFlowTargetCurrency.value);
+    }
+  }
+}
+
+function openCashFlowModal(mode) {
+  activeCashFlowMode = mode;
+  const platforms = getPlatformOptions();
+  const defaultSourcePlatform = platforms.includes("Zhuorui") ? "Zhuorui" : platforms[0] || "IBKR";
+  const defaultTargetPlatform = platforms.includes("IBKR") ? "IBKR" : platforms[0] || "IBKR";
+
+  populateSelectOptions(cashFlowPlatform, platforms, defaultTargetPlatform);
+  populateSelectOptions(cashFlowSourcePlatform, platforms, defaultSourcePlatform);
+  populateSelectOptions(cashFlowTargetPlatform, platforms, defaultTargetPlatform);
+
+  cashFlowSourceCurrency.value = mode === "transfer" ? "HKD" : "HKD";
+  cashFlowTargetCurrency.value = mode === "transfer" ? "HKD" : "USD";
+  cashFlowSourceAmount.value = "";
+  cashFlowTargetAmount.value = "";
+  cashFlowDate.value = getTodayInShanghai();
+  cashFlowNotes.value = "";
+  cashFlowFxRate.value = suggestFxRateForCurrency(cashFlowSourceCurrency.value);
+  cashFlowTargetFxRate.value = suggestFxRateForCurrency(cashFlowTargetCurrency.value);
+
+  const isTransfer = mode === "transfer";
+  cashFlowActionLabel.value = isTransfer ? "账户间转账" : "换汇";
+  cashFlowPlatformField.classList.toggle("is-hidden", isTransfer);
+  cashFlowSourcePlatformField.classList.toggle("is-hidden", !isTransfer);
+  cashFlowTargetPlatformField.classList.toggle("is-hidden", !isTransfer);
+  cashFlowTargetCurrencyField.classList.toggle("is-hidden", isTransfer);
+  cashFlowTargetAmountField.classList.toggle("is-hidden", isTransfer);
+  cashFlowTargetFxRateField.classList.toggle("is-hidden", isTransfer);
+
+  setCashFlowStatus(
+    isTransfer
+      ? "适合记录卓锐 -> IBKR 这类同币种跨平台划转。系统会同时写转出和转入两笔现金流水。"
+      : "适合同平台内换汇，例如 IBKR 的 HKD -> USD。系统会同时写换出和换入两笔现金流水。"
+  );
+  syncCashFlowDerivedFields();
+
+  cashFlowModal?.classList.remove("is-hidden");
+  cashFlowModal?.setAttribute("aria-hidden", "false");
+  window.setTimeout(() => cashFlowSourceAmount?.focus(), 0);
 }
 
 function openTradeModal(holding, action) {
@@ -2530,17 +2798,15 @@ async function continueAuth(username, password) {
         password: normalizedPassword,
       }),
     });
-
-    const sessionUser = await loadSession();
-    setAuthenticatedState(sessionUser || payload.user || null);
-    if (payload.mode === "register" && payload.claimedLegacyData) {
-      setAuthStatus("注册成功，系统已将历史未归属持仓自动归到这个首个账户。", "success");
-    } else if (payload.mode === "register") {
-      setAuthStatus("注册成功，已自动登录。", "success");
-    } else {
-      setAuthStatus("登录成功。", "success");
-    }
-    await refreshLatestPrices();
+    const successMessage =
+      payload.mode === "register" && payload.claimedLegacyData
+        ? "注册成功，系统已将历史未归属持仓自动归到这个首个账户。"
+        : payload.mode === "register"
+          ? "注册成功，已自动登录。"
+          : "登录成功。";
+    storePendingAuthNotice(successMessage);
+    setAuthStatus(successMessage, "success");
+    window.location.reload();
   } finally {
     authSubmitBtn.disabled = false;
     authSubmitBtn.textContent = "继续";
@@ -2593,6 +2859,7 @@ fields.currency.addEventListener("change", () => {
   if (fields.assetType.value === "cash" && (!fields.symbol.value || fields.symbol.value.endsWith("-CASH"))) {
     fields.symbol.value = `${getCurrencyValue() || "USD"}-CASH`;
   }
+  syncHoldingFxRateField();
   scheduleAutoPriceLookup();
 });
 fields.optionType.addEventListener("change", scheduleAutoPriceLookup);
@@ -2698,9 +2965,19 @@ openHoldingModalBtn?.addEventListener("click", () => {
   openHoldingModal("create");
 });
 
+openTransferModalBtn?.addEventListener("click", () => {
+  openCashFlowModal("transfer");
+});
+
+openFxModalBtn?.addEventListener("click", () => {
+  openCashFlowModal("fx");
+});
+
 holdingModalBackdrop?.addEventListener("click", closeHoldingModal);
 holdingActionsModalBackdrop?.addEventListener("click", closeHoldingActionsModal);
 holdingActionsCancelBtn?.addEventListener("click", closeHoldingActionsModal);
+cashFlowModalBackdrop?.addEventListener("click", closeCashFlowModal);
+cashFlowCancelBtn?.addEventListener("click", closeCashFlowModal);
 
 holdingActionsList?.addEventListener("click", (event) => {
   const button = event.target.closest("button");
@@ -2796,6 +3073,75 @@ tradeForm?.addEventListener("submit", async (event) => {
     setTradeStatus(error.message || "交易提交失败", "warning");
   } finally {
     tradeSubmitBtn.disabled = false;
+  }
+});
+
+[cashFlowSourceCurrency, cashFlowTargetCurrency, cashFlowSourceAmount].forEach((field) => {
+  field?.addEventListener("input", syncCashFlowDerivedFields);
+  field?.addEventListener("change", syncCashFlowDerivedFields);
+});
+
+cashFlowForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+
+  const tradeDate = cashFlowDate.value || getTodayInShanghai();
+  const notes = cashFlowNotes.value.trim();
+  const sourceCurrency = cashFlowSourceCurrency.value;
+  const amount = Number(cashFlowSourceAmount.value);
+
+  if (!Number.isFinite(amount) || amount <= 0) {
+    setCashFlowStatus("金额必须大于 0。", "warning");
+    return;
+  }
+
+  cashFlowSubmitBtn.disabled = true;
+  setCashFlowStatus("正在写入现金流水并更新账户余额...", "");
+
+  try {
+    if (activeCashFlowMode === "transfer") {
+      const result = await submitCashTransfer({
+        sourcePlatform: cashFlowSourcePlatform.value,
+        targetPlatform: cashFlowTargetPlatform.value,
+        currency: sourceCurrency,
+        amount,
+        tradeDate,
+        notes,
+        fxRate: Number(cashFlowFxRate.value || 0) || undefined,
+      });
+      setSyncStatus(
+        `${result.sourcePlatform} -> ${result.targetPlatform} 的 ${sourceCurrency} 转账已记账。`,
+        "success"
+      );
+    } else if (activeCashFlowMode === "fx") {
+      const toCurrency = cashFlowTargetCurrency.value;
+      const toAmount = Number(cashFlowTargetAmount.value);
+      if (!Number.isFinite(toAmount) || toAmount <= 0) {
+        setCashFlowStatus("换入金额必须大于 0。", "warning");
+        cashFlowSubmitBtn.disabled = false;
+        return;
+      }
+      const result = await submitFxExchange({
+        platform: cashFlowPlatform.value,
+        fromCurrency: sourceCurrency,
+        toCurrency,
+        fromAmount: amount,
+        toAmount,
+        tradeDate,
+        notes,
+        fromFxRate: Number(cashFlowFxRate.value || 0) || undefined,
+        toFxRate: Number(cashFlowTargetFxRate.value || 0) || undefined,
+      });
+      setSyncStatus(
+        `${result.platform} 已记录 ${result.fromCurrency} -> ${result.toCurrency} 换汇。`,
+        "success"
+      );
+    }
+
+    closeCashFlowModal();
+  } catch (error) {
+    setCashFlowStatus(error.message || "现金动作提交失败", "warning");
+  } finally {
+    cashFlowSubmitBtn.disabled = false;
   }
 });
 
