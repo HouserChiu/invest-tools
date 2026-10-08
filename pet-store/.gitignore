@@ -1,8 +1,0 @@
-.wrangler/
-.dev.vars
-node_modules/
-!dist/
-!dist/**
-
-# Local operations backups and UI captures
-ops/
